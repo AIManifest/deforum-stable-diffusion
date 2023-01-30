@@ -175,35 +175,46 @@ def load_model(root, load_on_run_all=True, check_sha256=True, map_location="cuda
             },
     }
 
-    import pandas as pd
     from IPython import display
-    config_dir = os.listdir(os.path.abspath(root.models_path))
-    config_list = []
-    for i, path in enumerate(config_dir):
-      if path.endswith(".yaml"):
-        path = os.path.join(root.models_path_gdrive, path)
-        config_list.append(path)
+    if root.model_config != "custom":
+      ckpt_config_path = os.path.join(root.configs_path, root.model_config)
+      if os.path.exists(ckpt_config_path):
+        pass
+      else:
+        ckpt_config_path = os.path.join(path_extend,"configs",root.model_config)
+        
+      ckpt_config_path = os.path.abspath(ckpt_config_path)
 
-    print("Please select a config file:")
-    for i, file in enumerate(config_list):
-      print(f"{i+1}. {file}")
+    else:
+      config_dir = os.listdir(os.path.abspath(root.models_path))
+      config_list = []
+      for i, path in enumerate(config_dir):
+        if path.endswith(".yaml"):
+          path = os.path.join(root.models_path_gdrive, path)
+          config_list.append(path)
 
-    selected_config = int(input("Enter the number of the file you want to select: ")) - 1
-    ckpt_config_path = config_list[selected_config]
+      print("Please select a config file:")
+      for i, file in enumerate(config_list):
+        print(f"{i+1}. {file}")
 
-    ckpt_dir = os.listdir(os.path.abspath(root.models_path_gdrive))
-    ckpt_list = []
-    for i, path in enumerate(ckpt_dir):
-      if path.endswith(".ckpt"):
-        path = os.path.join(root.models_path_gdrive, path)
-        ckpt_list.append(path)
+      selected_config = int(input("Enter the number of the file you want to select: ")) - 1
+      ckpt_config_path = config_list[selected_config]
+    if root.model_checkpoint != "custom":
+      ckpt_path = os.path.join(root.models_path, root.model_checkpoint)
+    else:
+      ckpt_dir = os.listdir(os.path.abspath(root.models_path_gdrive))
+      ckpt_list = []
+      for i, path in enumerate(ckpt_dir):
+        if path.endswith(".ckpt"):
+          path = os.path.join(root.models_path_gdrive, path)
+          ckpt_list.append(path)
 
-    print("Please select a checkpoint file:")
-    for i, file in enumerate(ckpt_list):
-      print(f"{i+1}. {file}")
+      print("Please select a checkpoint file:")
+      for i, file in enumerate(ckpt_list):
+        print(f"{i+1}. {file}")
 
-    selected_ckpt = int(input("Enter the number of the file you want to select: ")) - 1
-    ckpt_path = ckpt_list[selected_ckpt]
+      selected_ckpt = int(input("Enter the number of the file you want to select: ")) - 1
+      ckpt_path = ckpt_list[selected_ckpt]
 
     if os.path.exists(ckpt_path):
         pass
