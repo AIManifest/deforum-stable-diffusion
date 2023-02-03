@@ -61,7 +61,7 @@ conda activate dsd
 
 2. Clone this github repository and navigate to it:
 ```
-git clone https://github.com/deforum-art/deforum-stable-diffusion.git
+git clone https://github.com/AIManifest/deforum-stable-diffusion.git
 cd deforum-stable-diffusion
 ```
 
