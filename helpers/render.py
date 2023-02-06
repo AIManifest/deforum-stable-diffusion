@@ -303,7 +303,8 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
         if anim_args.enable_schedule_samplers:
             sampler_name = keys.sampler_schedule_series[frame_idx]
         depth = None
-        
+        if anim_args.enable_cadence_schedule:
+            turbo_steps = int(keys.cadence_schedule_series[frame_idx])
         # emit in-between frames
         if turbo_steps > 1:
             tween_frame_start_idx = max(0, frame_idx-turbo_steps)
