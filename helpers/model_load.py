@@ -176,16 +176,8 @@ def load_model(root, load_on_run_all=True, check_sha256=True, map_location="cuda
     }
 
     from IPython import display
-    if root.model_config != "custom":
-      ckpt_config_path = os.path.join(root.configs_path, root.model_config)
-      if os.path.exists(ckpt_config_path):
-        pass
-      else:
-        ckpt_config_path = os.path.join(path_extend,"configs",root.model_config)
-        
-      ckpt_config_path = os.path.abspath(ckpt_config_path)
 
-    else:
+    if root.model_config == "custom" and root.custom_config_path =="":
       config_dir = os.listdir(os.path.abspath(root.models_path))
       config_list = []
       for i, path in enumerate(config_dir):
@@ -199,9 +191,20 @@ def load_model(root, load_on_run_all=True, check_sha256=True, map_location="cuda
 
       selected_config = int(input("Enter the number of the file you want to select: ")) - 1
       ckpt_config_path = config_list[selected_config]
-    if root.model_checkpoint != "custom":
-      ckpt_path = os.path.join(root.models_path, root.model_checkpoint)
+
+    elif root.custom_config_path != "":
+      ckpt_config_path = root.custom_config_path
+
     else:
+      ckpt_config_path = os.path.join(root.configs_path, root.model_config)
+      if os.path.exists(ckpt_config_path):
+        pass
+      else:
+        ckpt_config_path = os.path.join(path_extend,"configs",root.model_config)
+        
+      ckpt_config_path = os.path.abspath(ckpt_config_path)
+      
+    if root.model_checkpoint == "custom" and root.custom_checkpoint_path == "":
       ckpt_dir = os.listdir(os.path.abspath(root.models_path_gdrive))
       ckpt_list = []
       for i, path in enumerate(ckpt_dir):
@@ -215,6 +218,12 @@ def load_model(root, load_on_run_all=True, check_sha256=True, map_location="cuda
 
       selected_ckpt = int(input("Enter the number of the file you want to select: ")) - 1
       ckpt_path = ckpt_list[selected_ckpt]
+      
+    elif root.custom_checkpoint_path != "":
+      ckpt_path = root.custom_checkpoint_path
+
+    else:
+      ckpt_path = os.path.join(root.models_path, root.model_checkpoint)
 
     if os.path.exists(ckpt_path):
         pass
