@@ -1,3 +1,5 @@
+#@title animation_quaternion
+
 import numpy as np
 import cv2
 from functools import reduce
@@ -212,6 +214,37 @@ def anim_frame_warp_2d(prev_img_cv2, args, anim_args, keys, frame_idx):
         borderMode=cv2.BORDER_WRAP if anim_args.border == 'wrap' else cv2.BORDER_REPLICATE
     )
 
+import torch
+import math
+
+def quaternion_to_matrix(quaternion: torch.Tensor) -> torch.Tensor:
+    """
+    Convert quaternions to rotation matrices.
+
+    Args:
+        quaternion: Quaternions as tensor of shape (..., 4).
+
+    Returns:
+        Rotation matrices as tensor of shape (..., 3, 3).
+    """
+    if quaternion.dim() == 0 or quaternion.shape[-1] != 4:
+        raise ValueError("Invalid input quaternion.")
+
+    w, x, y, z = torch.unbind(quaternion, -1)
+    n = torch.sqrt(w**2 + x**2 + y**2 + z**2)
+    s = 2/n
+
+    xs, ys, zs = x*s, y*s, z*s
+    wx, wy, wz = w*xs, w*ys, w*zs
+    xx, xy, xz = x*xs, x*ys, x*zs
+    yy, yz, zz = y*ys, y*zs, z*zs
+
+    return torch.stack([
+        torch.stack([1-yy-zz, xy-wz, xz+wy]),
+        torch.stack([xy+wz, 1-xx-zz, yz-wx]),
+        torch.stack([xz-wy, yz+wx, 1-xx-yy])
+    ], dim=-2)
+
 def anim_frame_warp_3d(device, prev_img_cv2, depth, anim_args, keys, frame_idx):
     TRANSLATION_SCALE = 1.0/200.0 # matches Disco
     translate_xyz = [
@@ -219,14 +252,27 @@ def anim_frame_warp_3d(device, prev_img_cv2, depth, anim_args, keys, frame_idx):
         keys.translation_y_series[frame_idx] * TRANSLATION_SCALE, 
         -keys.translation_z_series[frame_idx] * TRANSLATION_SCALE
     ]
-    rotate_xyz = [
+
+    if anim_args.use_quaternion_rotation:
+        rotate_xyz = [
+            math.radians(keys.rotation_3d_x_series[frame_idx]), 
+            math.radians(keys.rotation_3d_y_series[frame_idx]), 
+            math.radians(keys.rotation_3d_z_series[frame_idx]),
+            math.radians(keys.rotation_3d_w_series[frame_idx])
+        ]
+        rot_mat = quaternion_to_matrix(torch.tensor(rotate_xyz, device=device)).unsqueeze(0)
+        
+    else:
+        rotate_xyz = [
         math.radians(keys.rotation_3d_x_series[frame_idx]), 
         math.radians(keys.rotation_3d_y_series[frame_idx]), 
         math.radians(keys.rotation_3d_z_series[frame_idx])
     ]
-    rot_mat = p3d.euler_angles_to_matrix(torch.tensor(rotate_xyz, device=device), "XYZ").unsqueeze(0)
+        rot_mat = p3d.euler_angles_to_matrix(torch.tensor(rotate_xyz, device=device), "XYZ").unsqueeze(0)
+
     result = transform_image_3d(device, prev_img_cv2, depth, rot_mat, translate_xyz, anim_args)
-    torch.cuda.empty_cache()
+    torch.cuda.empty_cache()    
+    
     return result
 
 def transform_image_3d(device, prev_img_cv2, depth_tensor, rot_mat, translate, anim_args):
@@ -282,6 +328,7 @@ class DeformAnimKeys():
         self.rotation_3d_x_series = get_inbetweens(parse_key_frames(anim_args.rotation_3d_x), anim_args.max_frames)
         self.rotation_3d_y_series = get_inbetweens(parse_key_frames(anim_args.rotation_3d_y), anim_args.max_frames)
         self.rotation_3d_z_series = get_inbetweens(parse_key_frames(anim_args.rotation_3d_z), anim_args.max_frames)
+        self.rotation_3d_w_series = get_inbetweens(parse_key_frames(anim_args.rotation_3d_w), anim_args.max_frames)
         self.perspective_flip_theta_series = get_inbetweens(parse_key_frames(anim_args.perspective_flip_theta), anim_args.max_frames)
         self.perspective_flip_phi_series = get_inbetweens(parse_key_frames(anim_args.perspective_flip_phi), anim_args.max_frames)
         self.perspective_flip_gamma_series = get_inbetweens(parse_key_frames(anim_args.perspective_flip_gamma), anim_args.max_frames)
