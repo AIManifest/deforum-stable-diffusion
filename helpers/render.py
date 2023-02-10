@@ -1,4 +1,3 @@
-#@title render_quaternion
 import os
 import json
 from IPython import display
@@ -300,6 +299,10 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
             "mask_auto_contrast_cutoff_low": int(keys.hybrid_comp_mask_auto_contrast_cutoff_low_schedule_series[frame_idx]),
             "mask_auto_contrast_cutoff_high": int(keys.hybrid_comp_mask_auto_contrast_cutoff_high_schedule_series[frame_idx]),
         }
+        if anim_args.enable_cfg_scale_schedule:
+            args.scale = keys.cfg_scale_schedule[frame_idx]
+        else:
+            args.scale = args.scale
         sampler_name = None
         if anim_args.enable_schedule_samplers:
             sampler_name = keys.sampler_schedule_series[frame_idx]
@@ -478,23 +481,11 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
 
         # print run info
         if not using_vid_init:
-          if anim_args.use_quaternion_rotation:
+            print(f"Scale: {args.scale}")
             print(f"Sampler: {args.sampler}")
             print(f"Angle: {keys.angle_series[frame_idx]} Zoom: {keys.zoom_series[frame_idx]}")
             print(f"Tx: {keys.translation_x_series[frame_idx]} Ty: {keys.translation_y_series[frame_idx]} Tz: {keys.translation_z_series[frame_idx]}")
             print(f"Rx: {keys.rotation_3d_x_series[frame_idx]} Ry: {keys.rotation_3d_y_series[frame_idx]} Rz: {keys.rotation_3d_z_series[frame_idx]}, Rw: {keys.rotation_3d_w_series[frame_idx]}")
-            print(f"noise:  {keys.noise_schedule_series[frame_idx]}")
-            print(f"Strength:  {keys.strength_schedule_series[frame_idx]}")
-            print(f"Contrast:  {keys.contrast_schedule_series[frame_idx]}")
-            print(f"Kernel:  {int(keys.kernel_schedule_series[frame_idx])}")
-            print(f"Sigma:  {keys.sigma_schedule_series[frame_idx]}")
-            print(f"Amount:  {keys.amount_schedule_series[frame_idx]}")
-            print(f"Threshold:  {keys.threshold_schedule_series[frame_idx]}")
-          else:
-            print(f"Sampler: {args.sampler}")
-            print(f"Angle: {keys.angle_series[frame_idx]} Zoom: {keys.zoom_series[frame_idx]}")
-            print(f"Tx: {keys.translation_x_series[frame_idx]} Ty: {keys.translation_y_series[frame_idx]} Tz: {keys.translation_z_series[frame_idx]}")
-            print(f"Rx: {keys.rotation_3d_x_series[frame_idx]} Ry: {keys.rotation_3d_y_series[frame_idx]} Rz: {keys.rotation_3d_z_series[frame_idx]}")
             print(f"noise:  {keys.noise_schedule_series[frame_idx]}")
             print(f"Strength:  {keys.strength_schedule_series[frame_idx]}")
             print(f"Contrast:  {keys.contrast_schedule_series[frame_idx]}")
@@ -513,7 +504,7 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
                 args.mask_file = mask_frame
 
         # sample the diffusion model
-        sample, image = generate(args, root, frame_idx, return_latent=False, return_sample=True)
+        sample, image = generate(args, anim_args, root, frame_idx, return_latent=False, return_sample=True)
 
         # intercept and override to grayscale
         if anim_args.color_force_grayscale:
