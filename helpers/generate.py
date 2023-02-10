@@ -17,6 +17,7 @@ from .k_samplers import sampler_fn, make_inject_timing_fn
 from scipy.ndimage import gaussian_filter
 
 from .callback import SamplerCallback
+from .animation import DeformAnimKeys
 
 from .conditioning import exposure_loss, make_mse_loss, get_color_palette, make_clip_loss_fn
 from .conditioning import make_rgb_color_match_loss, blue_loss_fn, threshold_by, make_aesthetics_loss_fn, mean_loss_fn, var_loss_fn, exposure_loss
@@ -26,10 +27,10 @@ from .load_images import load_img, load_mask_latent, prepare_mask, prepare_overl
 def add_noise(sample: torch.Tensor, noise_amt: float) -> torch.Tensor:
     return sample + torch.randn(sample.shape, device=sample.device) * noise_amt
 
-def generate(args, root, frame=0, return_latent=False, return_sample=False, return_c=False):
+def generate(args, anim_args, root, frame=0, return_latent=False, return_sample=False, return_c=False):
     seed_everything(args.seed)
     os.makedirs(args.outdir, exist_ok=True)
-
+    
     sampler = PLMSSampler(root.model) if args.sampler == 'plms' else DDIMSampler(root.model)
     if root.model.parameterization == "v":
         model_wrap = CompVisVDenoiser(root.model)
@@ -202,7 +203,7 @@ def generate(args, root, frame=0, return_latent=False, return_sample=False, retu
                                     grad_inject_timing_fn=grad_inject_timing_fn, # option to use grad in only a few of the steps
                                     grad_consolidate_fn=None, # function to add grad to image fn(img, grad, sigma)
                                     verbose=False)
-
+    keys = DeformAnimKeys(anim_args)
     results = []
     with torch.no_grad():
         with precision_scope("cuda"):
@@ -219,9 +220,13 @@ def generate(args, root, frame=0, return_latent=False, return_sample=False, retu
 
                     if args.scale == 1.0:
                         uc = None
+                    if anim_args.enable_cfg_scale_schedule:
+                        args.scale = keys.cfg_scale_schedule[frame]
+                    else:
+                        args.scale = args.scale
                     if args.init_c != None:
                         c = args.init_c
-
+                    
                     if args.sampler in ["klms","dpm2","dpm2_ancestral","heun","euler","euler_ancestral", "dpm_fast", "dpm_adaptive", "dpmpp_2s_a", "dpmpp_2m"]:
                         samples = sampler_fn(
                             c=c, 
