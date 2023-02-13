@@ -77,7 +77,7 @@ def next_seed(args):
         args.seed = random.randint(0, 2**32 - 1)
     return args.seed
 
-def render_image_batch(root, args, cond_prompts, uncond_prompts):
+def render_image_batch(root, args, anim_args, cond_prompts, uncond_prompts):
 
     # convert prompt dict to list
     cond_prompts = [value for key, value in cond_prompts.items()]
@@ -147,7 +147,7 @@ def render_image_batch(root, args, cond_prompts, uncond_prompts):
             
             for image in init_array: # iterates the init images
                 args.init_image = image
-                results = generate(args, root)
+                results = generate(args, anim_args, root)
                 for image in results:
                     if args.make_grid:
                         all_images.append(T.functional.pil_to_tensor(image))
