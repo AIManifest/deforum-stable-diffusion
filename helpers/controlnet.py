@@ -222,7 +222,7 @@ def generate_control(control):
         new_image.show()
         new_image.save(os.path.join(new_image_dir, f"new_image_{img_idx:05d}.png"))
         display.clear_output(wait=True)
-        if img_idx == control.render_video_every:
+        if img_idx % control.render_video_every == 0:
             print("..\033[33mRendering Video\033[0m..")
             time_start = time.time()
             frame_folder = control.OUT_dir
