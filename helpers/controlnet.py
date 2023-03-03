@@ -1,4 +1,3 @@
-%%writefile /content/deforum-stable-diffusion/helpers/controlnet.py
 import os
 import time
 import itertools
