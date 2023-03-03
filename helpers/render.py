@@ -208,7 +208,7 @@ def create_first_video(frame_folder, output_filename, frame_rate=30, quality=17)
 
     display.display(output)
     display.display(error)
-    os.chdir("~")
+    os.chdir("..")
 
 # def create_video_next(frame_folder, output_filename, new_max_frames, image_path, next_frame_idx, frame_rate=30, quality=17):
 #     os.chdir(frame_folder)
