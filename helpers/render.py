@@ -1,7 +1,10 @@
+#@title MAYBE FINAL? OFFICIAL FFMPEG VIDEO PROGRESS CODE
 import os
+import subprocess
 import json
 from IPython import display
 import random
+import ffmpeg
 from torchvision.utils import make_grid
 from einops import rearrange
 import pandas as pd
@@ -186,6 +189,55 @@ def unsharp_mask(img, kernel_size=(5, 5), sigma=1.0, amount=1.0, threshold=0):
         low_contrast_mask = np.absolute(img - blurred) < threshold
         np.copyto(sharpened, img, where=low_contrast_mask)
     return sharpened
+
+def create_first_video(frame_folder, output_filename, frame_rate=30, quality=17):
+    os.chdir(frame_folder)
+    pattern = '*.png'
+    pix_fmt = 'yuv420p'
+    process = subprocess.Popen(['ffmpeg',
+                                '-framerate', 
+                                f"{frame_rate}", 
+                                '-pattern_type', 'glob', 
+                                '-i', pattern, 
+                                '-crf', str(quality), 
+                                '-pix_fmt', pix_fmt, 
+                                '-preset', 'veryfast', 
+                                '-y', output_filename], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    output, error = process.communicate()
+
+    display.display(output)
+    display.display(error)
+    os.chdir("~")
+
+# def create_video_next(frame_folder, output_filename, new_max_frames, image_path, next_frame_idx, frame_rate=30, quality=17):
+#     os.chdir(frame_folder)
+#     pattern = '*.png'
+#     process = subprocess.Popen(['ffmpeg',
+#                                 '-y',
+#                                 '-r', str(frame_rate),
+#                                 '-start_number', str(next_frame_idx),
+#                                 '-i', image_path,
+#                                 '-frames:v', str(new_max_frames),
+#                                 '-c:v', 'libx264',
+#                                 '-vf',
+#                                 f'fps={frame_rate}',
+#                                 '-pix_fmt', 'yuv420p',
+#                                 '-crf', '17',
+#                                 '-preset', 'veryfast',
+#                                 '-pattern_type', 'sequence',
+#                                 output_filename], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+#     output, error = process.communicate()
+
+#     display.display(output)
+#     display.display(error)
+#     os.chdir("/content/deforum-stable-diffusion/")
+
+# def combine_video(concat_txt, concat_output):
+#     process = subprocess.Popen(['ffmpeg', '-f', 'concat', '-safe', '0', '-i', concat_txt, '-c', 'copy', '-y', concat_output], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+#     output, error = process.communicate()
+#     display.display(error)
 
 
 def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
@@ -540,6 +592,21 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
 
         args.seed = next_seed(args)
 
+        if frame_idx == args.render_video_every:
+            print("..\033[33mRendering Video\033[0m..")
+            import time
+            time_start = time.time()
+            frame_folder = args.outdir
+            output_filename = f"{args.outdir}/{args.timestring}.mp4"
+            create_first_video(frame_folder, output_filename, frame_rate=30, quality=17)
+            time_end = time.time()
+            time_elapsed = time_end - time_start
+            print(f"Progress Animation Video Compiled, Saved to: {args.outdir}, Filename: {output_filename}")
+            print(f"Video Rendered in: {time_elapsed} seconds..")
+    if frame_idx == anim_args.max_frames:
+        output_filename_final = f"{args.outdir}/{args.timestring}_final.mp4"
+        create_first_video(frame_folder, output_filename_final, frame_rate=30, quality=17)
+        print(f"Animation Video Compled, Saved to: {args.outdir}, Filename: {output_filename_final}")
 def render_input_video(args, anim_args, animation_prompts, root):
     # create a folder for the video input frames to live in
     video_in_frame_path = os.path.join(args.outdir, 'inputframes') 
