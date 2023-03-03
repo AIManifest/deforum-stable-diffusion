@@ -592,7 +592,7 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
 
         args.seed = next_seed(args)
 
-        if frame_idx == args.render_video_every:
+        if frame_idx % args.render_video_every == 0:
             print("..\033[33mRendering Video\033[0m..")
             import time
             time_start = time.time()
