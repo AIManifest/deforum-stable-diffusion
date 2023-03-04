@@ -1,5 +1,3 @@
-#@title BACKUP CONTROLNET MAIN
-
 import os
 import time
 import itertools
@@ -78,6 +76,7 @@ def process(control, input_image, prompt, a_prompt, n_prompt, num_samples, image
             detected_map = HWC3(detected_map)
             img = resize_image(input_image, image_resolution)
             H, W, C = img.shape
+            detected_map = cv2.resize(detected_map, (W, H), interpolation=cv2.INTER_LINEAR)
 
         detected_map = detected_map
         controlx = torch.from_numpy(detected_map.copy()).float().cuda() / 255.0
