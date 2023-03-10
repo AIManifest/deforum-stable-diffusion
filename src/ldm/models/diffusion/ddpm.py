@@ -835,7 +835,10 @@ class LatentDiffusion(DDPM):
         return loss
 
     def forward(self, x, c, *args, **kwargs):
-        t = torch.randint(0, self.num_timesteps, (x.shape[0],), device=self.device).long()
+        x.to('cuda')
+        c.to('cuda')
+        t = torch.randint(0, self.num_timesteps, (x.shape[0],), device='cuda').long()
+        t.to('cuda')
         if self.model.conditioning_key is not None:
             assert c is not None
             if self.cond_stage_trainable:
@@ -881,25 +884,32 @@ class LatentDiffusion(DDPM):
         return mean_flat(kl_prior) / np.log(2.0)
 
     def p_losses(self, x_start, cond, t, noise=None):
+        cond.to('cuda')
+        x_start.to('cuda')
+        t.to('cuda')
         noise = default(noise, lambda: torch.randn_like(x_start))
+        noise.to('cuda')
         x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
         model_output = self.apply_model(x_noisy, t, cond)
 
         loss_dict = {}
         prefix = 'train' if self.training else 'val'
 
-        if self.parameterization == "x0":
-            target = x_start
-        elif self.parameterization == "eps":
-            target = noise
-        elif self.parameterization == "v":
-            target = self.get_v(x_start, noise, t)
-        else:
-            raise NotImplementedError()
-
+        # if self.parameterization == "x0":
+        #     target = x_start
+        # elif self.parameterization == "eps":
+        #     target = noise
+        # # elif self.parameterization == "v":
+        # #     self.get_v = self.get_v.to('cuda')
+        # #     target = self.get_v(x_start, noise, t)
+        # else:
+        #     raise NotImplementedError()
+        target = x_start
         loss_simple = self.get_loss(model_output, target, mean=False).mean([1, 2, 3])
         loss_dict.update({f'{prefix}/loss_simple': loss_simple.mean()})
-
+        logvar = self.logvar.to('cuda')
+        self.logvar = self.logvar.to('cuda')
+        self.logvar[t] = self.logvar[t].to('cuda')
         logvar_t = self.logvar[t].to(self.device)
         loss = loss_simple / torch.exp(logvar_t) + logvar_t
         # loss = loss_simple / torch.exp(self.logvar) + self.logvar
