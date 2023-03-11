@@ -47,8 +47,8 @@ def load_controlnet(controlnet_config_path, controlnet_model_path):
     save_memory = False
     return model
 
-def process(control, input_image, prompt, a_prompt, n_prompt, num_samples, image_resolution, detect_resolution, ddim_steps, guess_mode, strength, scale, seed, eta, low_threshold, high_threshold):
-    model = control.model
+def process(root, control, input_image, prompt, a_prompt, n_prompt, num_samples, image_resolution, detect_resolution, ddim_steps, guess_mode, strength, scale, seed, eta, low_threshold, high_threshold):
+    model = root.model
     ddim_sampler = control.ddim_sampler
     save_memory = control.save_memory
     with torch.no_grad():
@@ -108,11 +108,13 @@ def process(control, input_image, prompt, a_prompt, n_prompt, num_samples, image
 
         x_samples = model.decode_first_stage(samples)
         x_samples = (einops.rearrange(x_samples, 'b c h w -> b h w c') * 127.5 + 127.5).cpu().numpy().clip(0, 255).astype(np.uint8)
-
+        
         results = [x_samples[i] for i in range(num_samples)]
+        img_results = Image.fromarray(x_samples[0])
+        display.display(img_results)
     return [detected_map] + results if control.controlnet_model_type == "apply_hed" or "apply_depth" else [255 - detected_map] + results
 
-def generate_control(control):
+def generate_control(root, control):
     if control.generate_frames:
         video_path = control.video_path
         frames_path = control.IN_dir
@@ -188,7 +190,7 @@ def generate_control(control):
             f"\033[33mScale\033[0m: {control.scale} - \033[32mStrength\033[0m: {control.strength} - \033[35mSeed\033[0m: {control.seed}"
         )
 
-        image = process(control, input_image, prompt, a_prompt, n_prompt, num_samples, image_resolution, detect_resolution, ddim_steps, guess_mode, strength, scale, seed, eta, low_threshold, high_threshold)
+        image = process(root, control, input_image, prompt, a_prompt, n_prompt, num_samples, image_resolution, detect_resolution, ddim_steps, guess_mode, strength, scale, seed, eta, low_threshold, high_threshold)
         img = Image.fromarray(image[1])
         img.save(f"{control.OUT_dir}/{control.IN_batch}_{img_idx:05d}.png")
         print(f"Image Saved as: {control.OUT_dir}/{control.IN_batch}_{img_idx:05d}.png")
@@ -220,7 +222,7 @@ def generate_control(control):
         # # Show the resulting image
         new_image.show()
         new_image.save(os.path.join(new_image_dir, f"new_image_{img_idx:05d}.png"))
-        display.clear_output(wait=True)
+        display.clear_output(wait=False)
         # display.clear_output(wait=True)
         if img_idx % control.render_video_every == 0:
             print("..\033[33mRendering Video\033[0m..")
@@ -237,4 +239,4 @@ def generate_control(control):
         output_filename_final = f"{control.OUT_dir}/{control.IN_batch}_final.mp4"
         create_first_video(frame_folder, output_filename_final, frame_rate=30, quality=17)
         print(f"Animation Video Compled, Saved to: {control.OUT_dir}, Filename: {output_filename_final}")
-        
+  
