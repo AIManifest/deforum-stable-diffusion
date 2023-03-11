@@ -2,6 +2,8 @@ import os
 import torch
 from tqdm import tqdm
 import requests
+from cldm.model import create_model
+from helpers.controlnet import load_controlnet
 
 #from memory_profiler import profile
 
@@ -282,10 +284,14 @@ def load_model(root, load_on_run_all=True, check_sha256=True, map_location="cuda
         return model
 
     if load_on_run_all and ckpt_valid:
-        local_config = OmegaConf.load(f"{ckpt_config_path}")
-        model = load_model_from_config(local_config, f"{ckpt_path}", map_location)
-        device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-        model = model.to(device)
+        if not root.control_net_model:
+            local_config = OmegaConf.load(f"{ckpt_config_path}")
+            model = load_model_from_config(local_config, f"{ckpt_path}", map_location="cuda")
+            device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+            model = model.to(device)
+        else:
+            device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+            model = load_controlnet(ckpt_config_path, ckpt_path)
 
     autoencoder_version = "sd-v1" #TODO this will be different for different models
     model.linear_decode = make_linear_decode(autoencoder_version, device)
