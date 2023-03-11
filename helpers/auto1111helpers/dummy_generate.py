@@ -115,10 +115,6 @@ def generate(embedding_name, embedding_dir, cond_prompts, uncond_prompt, trainin
     C = 4
     f = 8
 
-    cond_prompt = ""
-    cond_prompts = ""
-    uncond_prompt = ""
-    uncond_prompts = ""
     timestring = ""
     init_latent = None
     init_sample = None
@@ -216,10 +212,6 @@ def generate(embedding_name, embedding_dir, cond_prompts, uncond_prompt, trainin
         C = 4
         f = 8
 
-        cond_prompt = ""
-        cond_prompts = ""
-        uncond_prompt = ""
-        uncond_prompts = ""
         timestring = ""
         init_latent = None
         init_sample = None
@@ -241,9 +233,9 @@ def generate(embedding_name, embedding_dir, cond_prompts, uncond_prompt, trainin
         model_wrap = CompVisDenoiser(root.model)
     batch_size = n_samples
     # cond prompts
-    cond_prompts = cond_prompt
-    assert cond_prompt is not None
-    cond_data = [batch_size * [cond_prompt]]
+    cond_prompts = cond_prompts
+    assert cond_prompts is not None
+    cond_data = [batch_size * [cond_prompts]]
     # uncond prompts
     uncond_prompt = uncond_prompt
     assert uncond_prompt is not None
