@@ -1,5 +1,6 @@
 from .animation import DeformAnimKeys
 
+import rich
 from rich.console import Console
 from rich.table import Table
 from rich.style import Style
