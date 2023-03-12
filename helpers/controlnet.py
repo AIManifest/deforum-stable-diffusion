@@ -6,8 +6,6 @@ import einops
 import numpy as np
 import torch
 import random
-import helpers
-from helpers.render import create_first_video
 from pytorch_lightning import seed_everything
 from annotator.hed import HEDdetector
 from annotator.canny import CannyDetector
@@ -18,6 +16,26 @@ from cldm.ddim_hacked import DDIMSampler
 from ldm.util import instantiate_from_config
 from IPython import display
 from PIL import Image
+
+def create_first_video(frame_folder, output_filename, frame_rate=30, quality=17):
+    os.chdir(frame_folder)
+    pattern = '*.png'
+    pix_fmt = 'yuv420p'
+    process = subprocess.Popen(['ffmpeg',
+                                '-framerate', 
+                                f"{frame_rate}", 
+                                '-pattern_type', 'glob', 
+                                '-i', pattern, 
+                                '-crf', str(quality), 
+                                '-pix_fmt', pix_fmt, 
+                                '-preset', 'veryfast', 
+                                '-y', output_filename], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    output, error = process.communicate()
+
+    display.display(output)
+    display.display(error)
+    os.chdir("..")
 
 # apply_hed = HEDdetector()
 # apply_canny = CannyDetector()
@@ -239,4 +257,4 @@ def generate_control(root, control):
         output_filename_final = f"{control.OUT_dir}/{control.IN_batch}_final.mp4"
         create_first_video(frame_folder, output_filename_final, frame_rate=30, quality=17)
         print(f"Animation Video Compled, Saved to: {control.OUT_dir}, Filename: {output_filename_final}")
-  
+ 
