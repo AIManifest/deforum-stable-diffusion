@@ -4,6 +4,7 @@ from tqdm import tqdm
 import requests
 from cldm.model import create_model
 from helpers.controlnet import load_controlnet
+from helpers.animation import DeformAnimKeys
 
 #from memory_profiler import profile
 
@@ -30,6 +31,56 @@ def make_linear_decode(model_version, device='cuda:0'):
 
     return linear_decode
 
+#checkpoint_scheduling
+def load_model_for_schedule(root, args, anim_args, keys, frame_idx):
+    import torch
+    import gc
+    from ldm.util import instantiate_from_config
+    from omegaconf import OmegaConf
+    from transformers import logging
+    logging.set_verbosity_error()
+    del root.model
+    gc.collect()
+    print_flag=False
+    verbose=False
+    keys = DeformAnimKeys(anim_args)
+    chkpnt_config = os.path.join(root.models_path_gdrive, os.path.splitext(keys.checkpoint_schedule_series[frame_idx])[0]) + ".yaml"
+    print(f"\033[31mUSING CONFIG\033[0m: {chkpnt_config}")
+    chkpnt_config = OmegaConf.load(f"{chkpnt_config}")
+    ckpt = os.path.join(root.models_path_gdrive, keys.checkpoint_schedule_series[frame_idx])
+    print(f"\033[35mUSING CHECKPOINT\033[0m: {ckpt}")
+    map_location = "cuda"
+    print(f"..\u001b[31minitiating model load for schedule\033[0m..")
+    _ , extension = os.path.splitext(ckpt)
+    if extension.lower() == ".safetensors":
+        import safetensors.torch
+        pl_sd = safetensors.torch.load_file(ckpt, device=map_location)
+    else:
+        pl_sd = torch.load(ckpt, map_location=map_location)
+    try:
+        sd = pl_sd["state_dict"]
+    except:
+        sd = pl_sd
+    torch.set_default_dtype(torch.float16)
+    model = instantiate_from_config(chkpnt_config.model)
+    torch.set_default_dtype(torch.float32)
+    m, u = model.load_state_dict(sd, strict=False)
+    if print_flag:
+        if len(m) > 0 and verbose:
+            print("missing keys:")
+            print(m)
+        if len(u) > 0 and verbose:
+            print("unexpected keys:")
+            print(u)
+
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    model = model.half().to(device)
+    model.eval()
+    model.to(device)
+    autoencoder_version = "sd-v1" #TODO this will be different for different models
+    model.linear_decode = make_linear_decode(autoencoder_version, device)
+    print("...\u001b[31mModel Loaded, Proceeding Animation\033[0m...")
+    return model, device
 
 def download_model(model_map,root):
     
