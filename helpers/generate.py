@@ -27,7 +27,7 @@ from .load_images import load_img, load_mask_latent, prepare_mask, prepare_overl
 def add_noise(sample: torch.Tensor, noise_amt: float) -> torch.Tensor:
     return sample + torch.randn(sample.shape, device=sample.device) * noise_amt
 
-def generate(args, anim_args, root, frame=0, return_latent=False, return_sample=False, return_c=False):
+def generate(args, anim_args, root, keys, frame=0, return_latent=False, return_sample=False, return_c=False):
     seed_everything(args.seed)
     os.makedirs(args.outdir, exist_ok=True)
     
@@ -108,16 +108,16 @@ def generate(args, anim_args, root, frame=0, return_latent=False, return_sample=
 
     assert not ( args.init_mse_scale != 0 and (args.init_mse_image is None or args.init_mse_image == '') ), "Need an init image when init_mse_scale != 0"
 
-    t_enc = int((1.0-args.strength) * args.steps)
-    print(f"tenc: {t_enc}")
+    t_enc = int((1.0-args.strength) * int(keys.steps_schedule_series[frame]))
+    print(f"\033[34mtenc\033[0m: {t_enc}")
 
     # Noise schedule for the k-diffusion samplers (used for masking)
-    k_sigmas = model_wrap.get_sigmas(args.steps)
-    args.clamp_schedule = dict(zip(k_sigmas.tolist(), np.linspace(args.clamp_start,args.clamp_stop,args.steps+1)))
+    k_sigmas = model_wrap.get_sigmas(int(keys.steps_schedule_series[frame]))
+    args.clamp_schedule = dict(zip(k_sigmas.tolist(), np.linspace(args.clamp_start,args.clamp_stop,int(keys.steps_schedule_series[frame])+1)))
     k_sigmas = k_sigmas[len(k_sigmas)-t_enc-1:]
 
     if args.sampler in ['plms','ddim']:
-        sampler.make_schedule(ddim_num_steps=args.steps, ddim_eta=args.ddim_eta, verbose=False)
+        sampler.make_schedule(ddim_num_steps=int(keys.steps_schedule_series[frame]), ddim_eta=args.ddim_eta, verbose=False)
 
     if args.colormatch_scale != 0:
         assert args.colormatch_image is not None, "If using color match loss, colormatch_image is needed"
@@ -191,7 +191,7 @@ def generate(args, anim_args, root, frame=0, return_latent=False, return_sample=
 
     clamp_fn = threshold_by(threshold=args.clamp_grad_threshold, threshold_type=args.grad_threshold_type, clamp_schedule=args.clamp_schedule)
 
-    grad_inject_timing_fn = make_inject_timing_fn(args.grad_inject_timing, model_wrap, args.steps)
+    grad_inject_timing_fn = make_inject_timing_fn(args.grad_inject_timing, model_wrap, int(keys.steps_schedule_series[frame]))
 
     cfg_model = CFGDenoiserWithGrad(model_wrap, 
                                     loss_fns_scales, 
@@ -246,7 +246,7 @@ def generate(args, anim_args, root, frame=0, return_latent=False, return_sample=
                         else:
                             z_enc = torch.randn([args.n_samples, args.C, args.H // args.f, args.W // args.f], device=root.device)
                             shape = [args.C, args.H // args.f, args.W // args.f]
-                            samples, _ = sampler.sample(S=args.steps,
+                            samples, _ = sampler.sample(S=int(keys.steps_schedule_series[frame]),
                                                             conditioning=c,
                                                             batch_size=args.n_samples,
                                                             shape=shape,
