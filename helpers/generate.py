@@ -12,6 +12,7 @@ from torch import autocast
 from contextlib import nullcontext
 from einops import rearrange, repeat
 
+from .model_load import load_model_for_schedule
 from .prompt import get_uc_and_c
 from .k_samplers import sampler_fn, make_inject_timing_fn
 from scipy.ndimage import gaussian_filter
@@ -38,11 +39,18 @@ def generate(args, anim_args, root, keys, frame=0, return_latent=False, return_s
         model_wrap = CompVisDenoiser(root.model)
     batch_size = args.n_samples
 
+    #checkpoint_scheduling
+    # args.checkpoint = args.checkpoint
+    if anim_args.enable_checkpoint_scheduling:
+        if args.checkpoint == os.path.basename(root.custom_checkpoint_path) or args.checkpoint == root.model_checkpoint or args.checkpoint == args.checkpoint:
+            args.newcheckpoint = args.checkpoint
+        if frame > 0 and not args.newcheckpoint == keys.checkpoint_schedule_series[frame-1]:
+            root.model, root.device = load_model_for_schedule(root, args, anim_args, keys, frame)
     # cond prompts
     cond_prompt = args.cond_prompt
     assert cond_prompt is not None
     cond_data = [batch_size * [cond_prompt]]
-
+    frame+=1
     # uncond prompts
     uncond_prompt = args.uncond_prompt
     assert uncond_prompt is not None
