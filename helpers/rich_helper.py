@@ -4,6 +4,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.style import Style
 from rich.color import Color
+from rich import box
 
 console = Console()
 
@@ -11,7 +12,7 @@ def print_animation_table(args, anim_args, keys, frame_idx):
     keys = DeformAnimKeys(anim_args)
     console = Console()
 
-    table = Table(show_header=True, header_style="bold green")
+    table = Table(show_header=True, header_style="bold green", box=box.ROUNDED)
     table.add_column("Parameters", justify="left", style="green")
     table.add_column("Value", justify="left", style="yellow")
     
