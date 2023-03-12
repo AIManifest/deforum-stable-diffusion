@@ -268,17 +268,21 @@ def anim_frame_warp_3d(device, prev_img_cv2, depth, anim_args, keys, frame_idx):
     ]
         rot_mat = p3d.euler_angles_to_matrix(torch.tensor(rotate_xyz, device=device), "XYZ").unsqueeze(0)
 
-    result = transform_image_3d(device, prev_img_cv2, depth, rot_mat, translate_xyz, anim_args)
+    result = transform_image_3d(device, prev_img_cv2, depth, rot_mat, translate_xyz, anim_args, keys, frame_idx)
     torch.cuda.empty_cache()    
     
     return result
 
-def transform_image_3d(device, prev_img_cv2, depth_tensor, rot_mat, translate, anim_args):
+def transform_image_3d(device, prev_img_cv2, depth_tensor, rot_mat, translate, anim_args, keys, frame_idx):
     # adapted and optimized version of transform_image_3d from Disco Diffusion https://github.com/alembics/disco-diffusion 
     w, h = prev_img_cv2.shape[1], prev_img_cv2.shape[0]
 
-    aspect_ratio = 1
-    near, far, fov_deg = anim_args.near_plane, anim_args.far_plane, anim_args.fov
+    # aspect_ratio = 1
+    # near, far, fov_deg = anim_args.near_plane, anim_args.far_plane, anim_args.fov
+    aspect_ratio = keys.aspect_ratio_series[frame_idx]
+    near = keys.near_series[frame_idx]
+    far = keys.far_series[frame_idx]
+    fov_deg = keys.fov_series[frame_idx]
     persp_cam_old = p3d.FoVPerspectiveCameras(near, far, aspect_ratio, fov=fov_deg, degrees=True, device=device)
     persp_cam_new = p3d.FoVPerspectiveCameras(near, far, aspect_ratio, fov=fov_deg, degrees=True, R=rot_mat, T=torch.tensor([translate]), device=device)
 
@@ -318,6 +322,7 @@ def transform_image_3d(device, prev_img_cv2, depth_tensor, rot_mat, translate, a
 
 class DeformAnimKeys():
     def __init__(self, anim_args):
+        self.steps_schedule_series = get_inbetweens(parse_key_frames(anim_args.steps_schedule), anim_args.max_frames)
         self.angle_series = get_inbetweens(parse_key_frames(anim_args.angle), anim_args.max_frames)
         self.zoom_series = get_inbetweens(parse_key_frames(anim_args.zoom), anim_args.max_frames)
         self.translation_x_series = get_inbetweens(parse_key_frames(anim_args.translation_x), anim_args.max_frames)
@@ -331,6 +336,10 @@ class DeformAnimKeys():
         self.perspective_flip_phi_series = get_inbetweens(parse_key_frames(anim_args.perspective_flip_phi), anim_args.max_frames)
         self.perspective_flip_gamma_series = get_inbetweens(parse_key_frames(anim_args.perspective_flip_gamma), anim_args.max_frames)
         self.perspective_flip_fv_series = get_inbetweens(parse_key_frames(anim_args.perspective_flip_fv), anim_args.max_frames)
+        self.aspect_ratio_series = get_inbetweens(parse_key_frames(anim_args.aspect_ratio_schedule), anim_args.max_frames)
+        self.near_series = get_inbetweens(parse_key_frames(anim_args.near_schedule), anim_args.max_frames)
+        self.far_series = get_inbetweens(parse_key_frames(anim_args.far_schedule), anim_args.max_frames)
+        self.fov_series = get_inbetweens(parse_key_frames(anim_args.fov_schedule), anim_args.max_frames)
         self.cfg_scale_schedule = get_inbetweens(parse_key_frames(anim_args.cfg_scale_schedule), anim_args.max_frames)
         self.noise_schedule_series = get_inbetweens(parse_key_frames(anim_args.noise_schedule), anim_args.max_frames)
         self.strength_schedule_series = get_inbetweens(parse_key_frames(anim_args.strength_schedule), anim_args.max_frames)
