@@ -14,6 +14,7 @@ from PIL import Image, ImageOps
 import pathlib
 import torchvision.transforms as T
 
+from .rich_helper import print_animation_table
 from .generate import generate, add_noise
 from .prompt import sanitize
 from .animation import DeformAnimKeys, sample_from_cv2, sample_to_cv2, anim_frame_warp, vid2frames
@@ -551,7 +552,7 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
             print(f"\033[36mSigma\033[0m:  {keys.sigma_schedule_series[frame_idx]}")
             print(f"\033[31mAmount\033[0m:  {keys.amount_schedule_series[frame_idx]}")
             print(f"\033[32mThreshold\033[0m:  {keys.threshold_schedule_series[frame_idx]}")
-
+            print_animation_table(args, anim_args, keys, frame_idx)
         # grab init image for current frame
         if using_vid_init:
             init_frame = os.path.join(args.outdir, 'inputframes', f"{frame_idx+1:05}.jpg")            
