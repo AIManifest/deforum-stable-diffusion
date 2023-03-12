@@ -1,4 +1,3 @@
-#@title MAYBE FINAL? OFFICIAL FFMPEG VIDEO PROGRESS CODE
 import os
 import subprocess
 import json
@@ -531,20 +530,27 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
             if sampler_name in available_samplers:
                 args.sampler = sampler_name
 
+        # colors = ['\033[31m', '\033[33m', '\033[34m', '\033[35m', '\033[32m']
+
         # print run info
         if not using_vid_init:
-            print(f"Scale: {args.scale}")
-            print(f"Sampler: {args.sampler}")
-            print(f"Angle: {keys.angle_series[frame_idx]} Zoom: {keys.zoom_series[frame_idx]}")
-            print(f"Tx: {keys.translation_x_series[frame_idx]} Ty: {keys.translation_y_series[frame_idx]} Tz: {keys.translation_z_series[frame_idx]}")
-            print(f"Rx: {keys.rotation_3d_x_series[frame_idx]} Ry: {keys.rotation_3d_y_series[frame_idx]} Rz: {keys.rotation_3d_z_series[frame_idx]}, Rw: {keys.rotation_3d_w_series[frame_idx]}")
-            print(f"noise:  {keys.noise_schedule_series[frame_idx]}")
-            print(f"Strength:  {keys.strength_schedule_series[frame_idx]}")
-            print(f"Contrast:  {keys.contrast_schedule_series[frame_idx]}")
-            print(f"Kernel:  {int(keys.kernel_schedule_series[frame_idx])}")
-            print(f"Sigma:  {keys.sigma_schedule_series[frame_idx]}")
-            print(f"Amount:  {keys.amount_schedule_series[frame_idx]}")
-            print(f"Threshold:  {keys.threshold_schedule_series[frame_idx]}")
+            print(f"\033[31mSteps\033[0m: {int(keys.steps_schedule_series[frame_idx])}")
+            print(f"\033[33mScale\033[0m: {args.scale}")
+            print(f"\033[34mSampler\033[0m: {args.sampler}")
+            print(f"\033[35mAngle\033[0m: {keys.angle_series[frame_idx]} \033[31mZoom\033[0m: {keys.zoom_series[frame_idx]}")
+            print(f"\033[32mTx\033[0m: {keys.translation_x_series[frame_idx]} \033[32mTy\033[0m: {keys.translation_y_series[frame_idx]} \033[34mTz\033[0m: {keys.translation_z_series[frame_idx]}")
+            print(f"\033[31mRx\033[0m: {keys.rotation_3d_x_series[frame_idx]} \033[33mRy\033[0m: {keys.rotation_3d_y_series[frame_idx]} \033[35mRz\033[0m: {keys.rotation_3d_z_series[frame_idx]}, \033[36mRw\033[0m: {keys.rotation_3d_w_series[frame_idx]}")
+            print(f"\033[33mAspect Ratio\033[0m: {keys.aspect_ratio_series[frame_idx]}")
+            print(f"\033[34mNear Plane\033[0m: {keys.near_series[frame_idx]}")
+            print(f"\033[35mFar Plane\033[0m: {keys.far_series[frame_idx]}")
+            print(f"\033[31mField Of View\033[0m: {keys.fov_series[frame_idx]}")
+            print(f"\033[32mNoise\033[0m:  {keys.noise_schedule_series[frame_idx]}")
+            print(f"\033[33mStrength\033[0m:  {keys.strength_schedule_series[frame_idx]}")
+            print(f"\033[34mContrast\033[0m:  {keys.contrast_schedule_series[frame_idx]}")
+            print(f"\033[35mKernel\033[0m:  {int(keys.kernel_schedule_series[frame_idx])}")
+            print(f"\033[36mSigma\033[0m:  {keys.sigma_schedule_series[frame_idx]}")
+            print(f"\033[31mAmount\033[0m:  {keys.amount_schedule_series[frame_idx]}")
+            print(f"\033[32mThreshold\033[0m:  {keys.threshold_schedule_series[frame_idx]}")
 
         # grab init image for current frame
         if using_vid_init:
@@ -556,7 +562,7 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
                 args.mask_file = mask_frame
 
         # sample the diffusion model
-        sample, image = generate(args, anim_args, root, frame_idx, return_latent=False, return_sample=True)
+        sample, image = generate(args, anim_args, root, keys, frame_idx, return_latent=False, return_sample=True)
 
         # intercept and override to grayscale
         if anim_args.color_force_grayscale:
