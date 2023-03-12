@@ -335,6 +335,9 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
 
     args.n_samples = 1
     frame_idx = start_frame
+    #checkpoint scheduling
+    args.checkpoint = keys.checkpoint_schedule_series[frame_idx] if anim_args.enable_checkpoint_scheduling else None
+    
     while frame_idx < anim_args.max_frames:
         print(f"Rendering animation frame {frame_idx} of {anim_args.max_frames}")
         noise = keys.noise_schedule_series[frame_idx]
@@ -358,6 +361,10 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
         sampler_name = None
         if anim_args.enable_schedule_samplers:
             sampler_name = keys.sampler_schedule_series[frame_idx]
+        if anim_args.enable_checkpoint_scheduling:
+            args.checkpoint = keys.checkpoint_schedule_series[frame_idx]
+        else:
+            args.checkpoint = None
         depth = None
         if anim_args.enable_cadence_schedule:
             turbo_steps = int(keys.cadence_schedule_series[frame_idx])
@@ -535,6 +542,7 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
 
         # print run info
         if not using_vid_init:
+            print(f"\033[34mUsing Checkpoint\033[0m: {keys.checkpoint_schedule_series[frame_idx]}")
             print(f"\033[31mSteps\033[0m: {int(keys.steps_schedule_series[frame_idx])}")
             print(f"\033[33mScale\033[0m: {args.scale}")
             print(f"\033[34mSampler\033[0m: {args.sampler}")
