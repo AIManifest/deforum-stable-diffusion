@@ -8,13 +8,16 @@ import numpy as np
 import torch
 import random
 from pytorch_lightning import seed_everything
+
 from annotator.hed import HEDdetector
 from annotator.canny import CannyDetector
 from annotator.midas import MidasDetector
+from annotator.openpose import OpenposeDetector
 from annotator.util import resize_image, HWC3
 from cldm.model import create_model, load_state_dict
 from cldm.ddim_hacked import DDIMSampler
 from ldm.util import instantiate_from_config
+
 from IPython import display
 from PIL import Image
 
@@ -72,16 +75,26 @@ def process(root, control, input_image, prompt, a_prompt, n_prompt, num_samples,
     save_memory = control.save_memory
     with torch.no_grad():
         if control.controlnet_model_type == "apply_hed":
-            print("Applying HED Detection")
+            print("\033[32mApplying HED Detection\033[0m")
             input_image = HWC3(input_image)
             detected_map = control.controlnet_apply_type(resize_image(input_image, detect_resolution))
             detected_map = HWC3(detected_map)
             img = resize_image(input_image, image_resolution)
             H, W, C = img.shape
             detected_map = cv2.resize(detected_map, (W, H), interpolation=cv2.INTER_LINEAR)
+
+        elif control.controlnet_model_type == "open_pose":
+            print("\033[33mApplying OpenPose Detection\033[0m")
+            input_image = HWC3(input_image)
+            detected_map, _ = control.controlnet_apply_type(resize_image(input_image, detect_resolution))
+            detected_map = HWC3(detected_map)
+            img = resize_image(input_image, image_resolution)
+            H, W, C = img.shape
+
+            detected_map = cv2.resize(detected_map, (W, H), interpolation=cv2.INTER_NEAREST)
         
         elif control.controlnet_model_type == "apply_canny":
-            print("Applying Canny Detection")
+            print("\033[34mApplying Canny Detection\033[0m")
             img = resize_image(HWC3(input_image), image_resolution)
             H, W, C = img.shape
 
@@ -89,7 +102,7 @@ def process(root, control, input_image, prompt, a_prompt, n_prompt, num_samples,
             detected_map = HWC3(detected_map)
         
         else:
-            print("Applying Midas Detection")
+            print("\033[35mApplying Midas Detection\033[0m")
             input_image = HWC3(input_image)
             detected_map, _ = control.controlnet_apply_type(resize_image(input_image, detect_resolution))
             detected_map = HWC3(detected_map)
@@ -131,7 +144,7 @@ def process(root, control, input_image, prompt, a_prompt, n_prompt, num_samples,
         results = [x_samples[i] for i in range(num_samples)]
         img_results = Image.fromarray(x_samples[0])
         display.display(img_results)
-    return [detected_map] + results if control.controlnet_model_type == "apply_hed" or "apply_depth" else [255 - detected_map] + results
+    return [detected_map] + results if control.controlnet_model_type == "apply_hed" or "apply_depth" or "open_pose" else [255 - detected_map] + results
 
 def generate_control(root, control):
     if control.generate_frames:
@@ -258,4 +271,3 @@ def generate_control(root, control):
         output_filename_final = f"{control.OUT_dir}/{control.IN_batch}_final.mp4"
         create_first_video(frame_folder, output_filename_final, frame_rate=30, quality=17)
         print(f"Animation Video Compled, Saved to: {control.OUT_dir}, Filename: {output_filename_final}")
- 
