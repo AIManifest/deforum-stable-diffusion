@@ -9,6 +9,7 @@ import torch
 import random
 from pytorch_lightning import seed_everything
 
+import helpers
 from annotator.hed import HEDdetector
 from annotator.canny import CannyDetector
 from annotator.midas import MidasDetector
@@ -20,6 +21,29 @@ from ldm.util import instantiate_from_config
 
 from IPython import display
 from PIL import Image
+
+def vid2frames(video_path, frames_path, n=1, overwrite=True):      
+    if not os.path.exists(frames_path) or overwrite: 
+        try:
+            for f in pathlib.Path(frames_path).glob('*.jpg'):
+                f.unlink()
+        except:
+            pass
+        assert os.path.exists(video_path), f"Video input {video_path} does not exist"
+          
+        vidcap = cv2.VideoCapture(video_path)
+        success,image = vidcap.read()
+        count = 0
+        t=1
+        success = True
+        while success:
+            if count % n == 0:
+                cv2.imwrite(frames_path + os.path.sep + f"{t:05}.jpg" , image)     # save frame as JPEG file
+                t += 1
+            success,image = vidcap.read()
+            count += 1
+        print("Converted %d frames" % count)
+    else: print("Frames already unpacked")
 
 def create_first_video(frame_folder, output_filename, frame_rate=30, quality=17):
     os.chdir(frame_folder)
@@ -41,8 +65,6 @@ def create_first_video(frame_folder, output_filename, frame_rate=30, quality=17)
     display.display(error)
     os.chdir("..")
 
-# apply_hed = HEDdetector()
-# apply_canny = CannyDetector()
 def load_controlnet(controlnet_config_path, controlnet_model_path):
     print_flag = False
     verbose = False
@@ -53,8 +75,7 @@ def load_controlnet(controlnet_config_path, controlnet_model_path):
         sd = pl_sd["state_dict"]
     except:
         sd = pl_sd
-    # torch.set_default_dtype(torch.float16)
-    # model = instantiate_from_config("/content/ControlNet/models/cldm_v15.yaml")
+    
     torch.set_default_dtype(torch.float32)
     m, u = model.load_state_dict(sd, strict=False)
     if print_flag:
@@ -109,8 +130,15 @@ def process(root, control, input_image, prompt, a_prompt, n_prompt, num_samples,
             img = resize_image(input_image, image_resolution)
             H, W, C = img.shape
             detected_map = cv2.resize(detected_map, (W, H), interpolation=cv2.INTER_LINEAR)
+        
+        print("\033[31m..Input Image..\033[0m..")
+        new_input_image = Image.fromarray(input_image)
+        display.display(new_input_image)
 
-        detected_map = detected_map
+        print("\033[31m..Detecting Map From Image..\033[0m..")
+        map_detected = Image.fromarray(detected_map)
+        display.display(map_detected)
+
         controlx = torch.from_numpy(detected_map.copy()).float().cuda() / 255.0
         controlx = torch.stack([controlx for _ in range(num_samples)], dim=0)
         controlx = einops.rearrange(controlx, 'b h w c -> b c h w').clone()
@@ -144,13 +172,14 @@ def process(root, control, input_image, prompt, a_prompt, n_prompt, num_samples,
         results = [x_samples[i] for i in range(num_samples)]
         img_results = Image.fromarray(x_samples[0])
         display.display(img_results)
+        
     return [detected_map] + results if control.controlnet_model_type == "apply_hed" or "apply_depth" or "open_pose" else [255 - detected_map] + results
 
 def generate_control(root, control):
     if control.generate_frames:
         video_path = control.video_path
         frames_path = control.IN_dir
-        helpers.animation.vid2frames(video_path, frames_path, n=1, overwrite=True)
+        vid2frames(video_path, frames_path, n=1, overwrite=True)
     else:
         print(f"Frames Path Exists Already at {control.IN_dir}, Skipping frame extraction.")
     input_image = control.IN_dir
@@ -233,6 +262,8 @@ def generate_control(root, control):
         pil_image1 = Image.fromarray(image[0])
         pil_image2 = Image.fromarray(image[1])
 
+        pil_image2.show()
+
         height = max(pil_image1.height, pil_image2.height, pil_image0.height)
         width = pil_image1.width + pil_image2.width + pil_image0.width
         pil_image1 = pil_image1.resize((int(height * pil_image1.width / pil_image1.height), height))
@@ -254,8 +285,8 @@ def generate_control(root, control):
         # # Show the resulting image
         new_image.show()
         new_image.save(os.path.join(new_image_dir, f"new_image_{img_idx:05d}.png"))
-        display.clear_output(wait=True)
         # display.clear_output(wait=True)
+        display.clear_output(wait=True)
         if img_idx % control.render_video_every == 0:
             print("..\033[33mRendering Video\033[0m..")
             time_start = time.time()
