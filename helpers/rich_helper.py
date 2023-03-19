@@ -52,10 +52,9 @@ def print_animation_table(args, anim_args, keys, frame_idx):
                   f"{keys.rotation_3d_y_series[frame_idx]}",
                   f"{keys.rotation_3d_z_series[frame_idx]}",
                   f"{keys.rotation_3d_w_series[frame_idx]}",
-                  f"{keys.threshold_schedule_series[frame_idx]}")
+                  f"{keys.aspect_ratio_series[frame_idx]}")
 
-    table2.add_row(f"{keys.aspect_ratio_series[frame_idx]}",
-                  f"{keys.near_series[frame_idx]}",
+    table2.add_row(f"{keys.near_series[frame_idx]}",
                   f"{keys.far_series[frame_idx]}",
                   f"{keys.fov_series[frame_idx]}",
                   f"{keys.noise_schedule_series[frame_idx]}",
@@ -63,7 +62,8 @@ def print_animation_table(args, anim_args, keys, frame_idx):
                   f"{keys.contrast_schedule_series[frame_idx]}",
                   str(int(keys.kernel_schedule_series[frame_idx])),
                   f"{keys.sigma_schedule_series[frame_idx]}",
-                  f"{keys.amount_schedule_series[frame_idx]}")
+                  f"{keys.amount_schedule_series[frame_idx]}",
+                  f"{keys.threshold_schedule_series[frame_idx]}")
                   
     console.print(table1)
     console.print(table2)
