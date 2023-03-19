@@ -1,3 +1,4 @@
+#@title RENDER GLITCH EVERY NTH FRAME
 import os
 import subprocess
 import json
@@ -10,7 +11,7 @@ import pandas as pd
 os.environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
 import cv2
 import numpy as np
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageDraw, ImageFont
 import pathlib
 import torchvision.transforms as T
 
@@ -34,6 +35,109 @@ except ModuleNotFoundError:
     from numpngw import write_png
 
 #import tifffile # Un-comment to save 32bpc TIFF images too. Also un-comment line within 'def save_8_16_or_32bpc_image()'
+
+def glitch_image(sample, args):
+    # sample = cv2.imread(sample)
+    row_size = args.glitch_row_size
+    width = sample.shape[1]
+    third = width // 3
+    # Create glitch effect by shifting rows of pixels
+    for i in range(0, sample.shape[0], row_size):
+        shift = np.random.randint(-args.glitch_shift, args.glitch_shift)
+        shifted_row = np.roll(sample[i:i+row_size], shift, axis=args.glitch_axis)
+
+        # Alternate color of shifted pixels
+        if (i // row_size) % 3 == 0:
+            shifted_row[:, :, 1] = 0
+            shifted_row[:, :, 2] = 0
+        elif (i // row_size) % 3 == 1:
+            shifted_row[:, :, 0] = 0
+            shifted_row[:, :, 2] = 0
+        else:
+            shifted_row[:, :, 0] = 0
+            shifted_row[:, :, 1] = 0
+
+        # Blend original and shifted rows
+        alpha = args.glitch_alpha
+        sample[i:i+row_size] = cv2.addWeighted(sample[i:i+row_size], alpha,
+                                      shifted_row, 1 - alpha,
+                                      gamma=args.glitch_gamma)
+    return sample
+
+def glitch_image_diagonal(sample, args):
+    # sample = cv2.imread(sample)
+    row_size = args.glitch_row_size
+    width = sample.shape[1]
+    third = width // 3
+    # Create glitch effect by shifting rows of pixels
+    for i in range(0, sample.shape[0], row_size):
+        shift_x = np.random.randint(-args.glitch_shift, args.glitch_shift)
+        shift_y = np.random.randint(-args.glitch_shift, args.glitch_shift)
+        shifted_row = np.roll(sample[i:i+row_size], shift_x, axis=1)
+        shifted_row = np.roll(shifted_row, shift_y, axis=0)
+
+        # Alternate color of shifted pixels
+        if (i // row_size) % 3 == 0:
+            shifted_row[:, :, 1] = 0
+            shifted_row[:, :, 2] = 0
+        elif (i // row_size) % 3 == 1:
+            shifted_row[:, :, 0] = 0
+            shifted_row[:, :, 2] = 0
+        else:
+            shifted_row[:, :, 0] = 0
+            shifted_row[:, :, 1] = 0
+
+        # Blend original and shifted rows
+        alpha = args.glitch_alpha
+        sample[i:i+row_size] = cv2.addWeighted(sample[i:i+row_size], alpha,
+                                      shifted_row, 1 - alpha,
+                                      gamma=args.glitch_gamma)
+    return sample
+
+def draw_text_on_image(sample, args, draw_text):
+    font_path = args.font_path
+    font_size = args.draw_text_font_size
+    font = ImageFont.truetype(font_path, font_size)
+
+    # Convert the cv2 image to a PIL image
+    pil_image = Image.fromarray(cv2.cvtColor(sample, cv2.COLOR_BGR2RGB))
+
+    width, height = pil_image.size
+    center_x = width // 2
+    position = args.text_position
+    if position == 'center':
+        center_y = height // 2
+    elif position == 'top':
+        center_y = font_size // 2
+    elif position == 'bottom':
+        center_y = height - font_size // 2
+
+    text_color = args.text_color
+    text = draw_text
+
+    text_size = font.getsize(text)
+    text_x = center_x - text_size[0] // 2
+
+    if position == 'center':
+        text_y = center_y - text_size[1] // 2
+    elif position == 'top':
+        text_y = 0
+    elif position == 'bottom':
+        text_y = height - text_size[1]
+
+    msk = Image.new("RGBA", (width, height))
+
+    mdr = ImageDraw.Draw(msk)
+    mdr.text((text_x, text_y), text, fill=text_color, font=font)
+
+    # Paste the text onto the PIL image
+    pil_image.paste(msk, (0, 0), msk)
+
+    # Convert the PIL image back to cv2 format
+    sample = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+
+    return sample
+
 
 # This function converts the image to 8bpc (if it isn't already) to display it on browser.
 def convert_image_to_8bpc(image, bit_depth_output): 
@@ -339,7 +443,7 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
     args.checkpoint = keys.checkpoint_schedule_series[frame_idx] if anim_args.enable_checkpoint_scheduling else None
     
     while frame_idx < anim_args.max_frames:
-        print(f"Rendering animation frame {frame_idx} of {anim_args.max_frames}")
+        print(f"\033[31mRendering animation frame {frame_idx} of {anim_args.max_frames}\033[0m")
         noise = keys.noise_schedule_series[frame_idx]
         strength = keys.strength_schedule_series[frame_idx]
         contrast = keys.contrast_schedule_series[frame_idx]
@@ -373,7 +477,7 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
             tween_frame_start_idx = max(0, frame_idx-turbo_steps)
             for tween_frame_idx in range(tween_frame_start_idx, frame_idx):
                 tween = float(tween_frame_idx - tween_frame_start_idx + 1) / float(frame_idx - tween_frame_start_idx)
-                print(f"  creating in between frame {tween_frame_idx} tween:{tween:0.2f}")
+                print(f"  \033[33mcreating in between frame {tween_frame_idx} tween:{tween:0.2f}\033[0m")
 
                 advance_prev = turbo_prev_image is not None and tween_frame_idx > turbo_prev_frame_idx
                 advance_next = tween_frame_idx > turbo_next_frame_idx
@@ -491,6 +595,29 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
                 mask_sample, _ = anim_frame_warp(args.mask_sample, args, anim_args, keys, frame_idx, depth_model, depth, device=root.device)
                 args.mask_sample = sample_from_cv2(mask_sample).half().to(root.device)
             
+            #draw text on image
+            if args.enable_draw_text_on_image:
+                if frame_idx in args.draw_text_frame:
+                    print(f"\033[35mDrawing Text to\033[0m: {frame_idx}")
+                    draw_text = args.draw_text_frame[frame_idx]
+                    prev_img = draw_text_on_image(prev_img, args, draw_text)
+
+            #apply glitch effect
+            if args.enable_glitch_effect:
+                if args.glitch_every_nth_frame is None or args.glitch_every_nth_frame == 0:
+                    print("\033[35mApplying Glitch Effect Every Frame\033[0m")
+                    if args.glitch_effect_diagonal:
+                        prev_img = glitch_image_diagonal(prev_img, args)
+                    else:
+                        prev_img = glitch_image(prev_img, args)
+                else:
+                    if frame_idx % args.glitch_every_nth_frame == 0:
+                        print(f"\033[35mApplying Glitch Effect Every\033[0m: {args.glitch_every_nth_frame}")
+                        if args.glitch_effect_diagonal:
+                            prev_img = glitch_image_diagonal(prev_img, args)
+                        else:
+                            prev_img = glitch_image(prev_img, args)
+
             # apply color matching
             if anim_args.color_coherence != 'None':
                 # video color matching
@@ -528,9 +655,9 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
         args.cond_prompt = cond_prompt_series[frame_idx]
         args.uncond_prompt = uncond_prompt_series[frame_idx]
         args.clip_prompt = cond_prompt_series[frame_idx]
-        print(f"seed: {args.seed}")
-        print(f"cond_prompt: {args.cond_prompt}")
-        print(f"uncond_prompt: {args.uncond_prompt}")
+        print(f"\033[34mseed\033[0m: {args.seed}")
+        print(f"\033[35mcond_prompt\033[0m: {args.cond_prompt}")
+        print(f"\033[32muncond_prompt\033[0m: {args.uncond_prompt}")
 
         # assign sampler_name to args.sampler
         available_samplers = ["klms","dpm2","dpm2_ancestral","heun","euler","euler_ancestral", "dpm_fast", "dpm_adaptive", "dpmpp_2s_a", "dpmpp_2m"]
@@ -542,24 +669,24 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
 
         # print run info
         if not using_vid_init:
-            print(f"\033[34mUsing Checkpoint\033[0m: {keys.checkpoint_schedule_series[frame_idx]}")
-            print(f"\033[31mSteps\033[0m: {int(keys.steps_schedule_series[frame_idx])}")
-            print(f"\033[33mScale\033[0m: {args.scale}")
-            print(f"\033[34mSampler\033[0m: {args.sampler}")
-            print(f"\033[35mAngle\033[0m: {keys.angle_series[frame_idx]} \033[31mZoom\033[0m: {keys.zoom_series[frame_idx]}")
-            print(f"\033[32mTx\033[0m: {keys.translation_x_series[frame_idx]} \033[32mTy\033[0m: {keys.translation_y_series[frame_idx]} \033[34mTz\033[0m: {keys.translation_z_series[frame_idx]}")
-            print(f"\033[31mRx\033[0m: {keys.rotation_3d_x_series[frame_idx]} \033[33mRy\033[0m: {keys.rotation_3d_y_series[frame_idx]} \033[35mRz\033[0m: {keys.rotation_3d_z_series[frame_idx]}, \033[36mRw\033[0m: {keys.rotation_3d_w_series[frame_idx]}")
-            print(f"\033[33mAspect Ratio\033[0m: {keys.aspect_ratio_series[frame_idx]}")
-            print(f"\033[34mNear Plane\033[0m: {keys.near_series[frame_idx]}")
-            print(f"\033[35mFar Plane\033[0m: {keys.far_series[frame_idx]}")
-            print(f"\033[31mField Of View\033[0m: {keys.fov_series[frame_idx]}")
-            print(f"\033[32mNoise\033[0m:  {keys.noise_schedule_series[frame_idx]}")
-            print(f"\033[33mStrength\033[0m:  {keys.strength_schedule_series[frame_idx]}")
-            print(f"\033[34mContrast\033[0m:  {keys.contrast_schedule_series[frame_idx]}")
-            print(f"\033[35mKernel\033[0m:  {int(keys.kernel_schedule_series[frame_idx])}")
-            print(f"\033[36mSigma\033[0m:  {keys.sigma_schedule_series[frame_idx]}")
-            print(f"\033[31mAmount\033[0m:  {keys.amount_schedule_series[frame_idx]}")
-            print(f"\033[32mThreshold\033[0m:  {keys.threshold_schedule_series[frame_idx]}")
+            # print(f"\033[34mUsing Checkpoint\033[0m: {keys.checkpoint_schedule_series[frame_idx]}")
+            # print(f"\033[31mSteps\033[0m: {int(keys.steps_schedule_series[frame_idx])}")
+            # print(f"\033[33mScale\033[0m: {args.scale}")
+            # print(f"\033[34mSampler\033[0m: {args.sampler}")
+            # print(f"\033[35mAngle\033[0m: {keys.angle_series[frame_idx]} \033[31mZoom\033[0m: {keys.zoom_series[frame_idx]}")
+            # print(f"\033[32mTx\033[0m: {keys.translation_x_series[frame_idx]} \033[32mTy\033[0m: {keys.translation_y_series[frame_idx]} \033[34mTz\033[0m: {keys.translation_z_series[frame_idx]}")
+            # print(f"\033[31mRx\033[0m: {keys.rotation_3d_x_series[frame_idx]} \033[33mRy\033[0m: {keys.rotation_3d_y_series[frame_idx]} \033[35mRz\033[0m: {keys.rotation_3d_z_series[frame_idx]}, \033[36mRw\033[0m: {keys.rotation_3d_w_series[frame_idx]}")
+            # print(f"\033[33mAspect Ratio\033[0m: {keys.aspect_ratio_series[frame_idx]}")
+            # print(f"\033[34mNear Plane\033[0m: {keys.near_series[frame_idx]}")
+            # print(f"\033[35mFar Plane\033[0m: {keys.far_series[frame_idx]}")
+            # print(f"\033[31mField Of View\033[0m: {keys.fov_series[frame_idx]}")
+            # print(f"\033[32mNoise\033[0m:  {keys.noise_schedule_series[frame_idx]}")
+            # print(f"\033[33mStrength\033[0m:  {keys.strength_schedule_series[frame_idx]}")
+            # print(f"\033[34mContrast\033[0m:  {keys.contrast_schedule_series[frame_idx]}")
+            # print(f"\033[35mKernel\033[0m:  {int(keys.kernel_schedule_series[frame_idx])}")
+            # print(f"\033[36mSigma\033[0m:  {keys.sigma_schedule_series[frame_idx]}")
+            # print(f"\033[31mAmount\033[0m:  {keys.amount_schedule_series[frame_idx]}")
+            # print(f"\033[32mThreshold\033[0m:  {keys.threshold_schedule_series[frame_idx]}")
             print_animation_table(args, anim_args, keys, frame_idx)
         # grab init image for current frame
         if using_vid_init:
@@ -572,6 +699,32 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
 
         # sample the diffusion model
         sample, image = generate(args, anim_args, root, keys, frame_idx, return_latent=False, return_sample=True)
+
+        #draw text on image
+        # if args.enable_draw_text_on_image:
+        #     if frame_idx in args.draw_text_frame:
+        #         image = np.array(image)
+        #         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        #         print(f"\033[35mDrawing Text to\033[0m: {frame_idx}")
+        #         draw_text = args.draw_text_frame[frame_idx]
+        #         image = draw_text_on_image(image, args, draw_text)
+        #         image = Image.fromarray(image)
+
+        # #apply glitch effect
+        # if args.enable_glitch_effect:
+        #     if args.glitch_every_nth_frame is None or args.glitch_every_nth_frame == 0:
+        #         image = np.array(image)
+        #         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        #         print("\033[35mApplying Glitch Effect Every Frame\033[0m")
+        #         image = glitch_image(image, args)
+        #         image = Image.fromarray(image)
+        #     else:
+        #         if frame_idx % args.glitch_every_nth_frame == 0:
+        #             image = np.array(image)
+        #             image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        #             print(f"\033[35mApplying Glitch Effect Every\033[0m: {args.glitch_every_nth_frame}")
+        #             image = glitch_image(image, args)
+        #             image = Image.fromarray(image)
 
         # intercept and override to grayscale
         if anim_args.color_force_grayscale:
