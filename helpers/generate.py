@@ -8,6 +8,7 @@ import os
 from ldm.models.diffusion.plms import PLMSSampler
 from ldm.models.diffusion.ddim import DDIMSampler
 from k_diffusion.external import CompVisDenoiser, CompVisVDenoiser
+from k_diffusion import sampling
 from torch import autocast
 from contextlib import nullcontext
 from einops import rearrange, repeat
@@ -116,16 +117,22 @@ def generate(args, anim_args, root, keys, frame=0, return_latent=False, return_s
 
     assert not ( args.init_mse_scale != 0 and (args.init_mse_image is None or args.init_mse_image == '') ), "Need an init image when init_mse_scale != 0"
 
-    t_enc = int((1.0-args.strength) * int(keys.steps_schedule_series[frame]))
+    steps = int(keys.steps_schedule_series[frame]) if anim_args.animation_mode != "None" else args.steps
+
+    t_enc = int((1.0-args.strength) * steps)
     print(f"\033[34mtenc\033[0m: {t_enc}")
 
     # Noise schedule for the k-diffusion samplers (used for masking)
-    k_sigmas = model_wrap.get_sigmas(int(keys.steps_schedule_series[frame]))
-    args.clamp_schedule = dict(zip(k_sigmas.tolist(), np.linspace(args.clamp_start,args.clamp_stop,int(keys.steps_schedule_series[frame])+1)))
+    if "karras" in args.sampler:
+        print("..USING KARRAS SAMPLERS..")
+        sigma_min, sigma_max = args.grad_inject_timing[0], args.grad_inject_timing[1]
+        k_sigmas = sampling.get_sigmas_karras(n=steps, sigma_min=sigma_min, sigma_max=sigma_max, device=root.device)
+    k_sigmas = model_wrap.get_sigmas(steps)
+    args.clamp_schedule = dict(zip(k_sigmas.tolist(), np.linspace(args.clamp_start,args.clamp_stop,steps+1)))
     k_sigmas = k_sigmas[len(k_sigmas)-t_enc-1:]
 
     if args.sampler in ['plms','ddim']:
-        sampler.make_schedule(ddim_num_steps=int(keys.steps_schedule_series[frame]), ddim_eta=args.ddim_eta, verbose=False)
+        sampler.make_schedule(ddim_num_steps=steps, ddim_eta=args.ddim_eta, verbose=False)
 
     if args.colormatch_scale != 0:
         assert args.colormatch_image is not None, "If using color match loss, colormatch_image is needed"
@@ -199,7 +206,7 @@ def generate(args, anim_args, root, keys, frame=0, return_latent=False, return_s
 
     clamp_fn = threshold_by(threshold=args.clamp_grad_threshold, threshold_type=args.grad_threshold_type, clamp_schedule=args.clamp_schedule)
 
-    grad_inject_timing_fn = make_inject_timing_fn(args.grad_inject_timing, model_wrap, int(keys.steps_schedule_series[frame]))
+    grad_inject_timing_fn = make_inject_timing_fn(root, args, args.grad_inject_timing, model_wrap, steps)
 
     cfg_model = CFGDenoiserWithGrad(model_wrap, 
                                     loss_fns_scales, 
@@ -235,7 +242,7 @@ def generate(args, anim_args, root, keys, frame=0, return_latent=False, return_s
                     if args.init_c != None:
                         c = args.init_c
                     
-                    if args.sampler in ["klms","dpm2","dpm2_ancestral","heun","euler","euler_ancestral", "dpm_fast", "dpm_adaptive", "dpmpp_2s_a", "dpmpp_2m"]:
+                    if args.sampler in ["klms","dpm2","dpm2_ancestral","heun","euler","euler_ancestral","plms", "ddim", "dpm_fast", "dpm_adaptive", "dpmpp_2s_a", "dpmpp_2m", "dpmpp_sde", "lms_karras", "dmp2_karras", "dpm2_ancestral_karras", "dpmpp_2s_a_karras", "dpmpp_2m_karras", "dpmpp_sde_karras"]:
                         samples = sampler_fn(
                             c=c, 
                             uc=uc, 
@@ -254,7 +261,7 @@ def generate(args, anim_args, root, keys, frame=0, return_latent=False, return_s
                         else:
                             z_enc = torch.randn([args.n_samples, args.C, args.H // args.f, args.W // args.f], device=root.device)
                             shape = [args.C, args.H // args.f, args.W // args.f]
-                            samples, _ = sampler.sample(S=int(keys.steps_schedule_series[frame]),
+                            samples, _ = sampler.sample(S=steps,
                                                             conditioning=c,
                                                             batch_size=args.n_samples,
                                                             shape=shape,
