@@ -1,4 +1,3 @@
-#@title RENDER GLITCH EVERY NTH FRAME
 import os
 import subprocess
 import json
@@ -186,6 +185,9 @@ def next_seed(args):
 
 def render_image_batch(root, args, anim_args, cond_prompts, uncond_prompts):
 
+    #necessary for certain functions
+    keys = DeformAnimKeys(anim_args)
+
     # convert prompt dict to list
     cond_prompts = [value for key, value in cond_prompts.items()]
     uncond_prompts = [value for key, value in uncond_prompts.items()]
@@ -254,7 +256,7 @@ def render_image_batch(root, args, anim_args, cond_prompts, uncond_prompts):
             
             for image in init_array: # iterates the init images
                 args.init_image = image
-                results = generate(args, anim_args, root)
+                results = generate(args, anim_args, root, keys)
                 for image in results:
                     if args.make_grid:
                         all_images.append(T.functional.pil_to_tensor(image))
@@ -660,7 +662,7 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
         print(f"\033[32muncond_prompt\033[0m: {args.uncond_prompt}")
 
         # assign sampler_name to args.sampler
-        available_samplers = ["klms","dpm2","dpm2_ancestral","heun","euler","euler_ancestral", "dpm_fast", "dpm_adaptive", "dpmpp_2s_a", "dpmpp_2m"]
+        available_samplers = ["klms","dpm2","dpm2_ancestral","heun","euler","euler_ancestral","plms", "ddim", "dpm_fast", "dpm_adaptive", "dpmpp_2s_a", "dpmpp_2m", "dpmpp_sde", "lms_karras", "dmp2_karras", "dpm2_ancestral_karras", "dpmpp_2s_a_karras", "dpmpp_2m_karras", "dpmpp_sde_karras"]
         if sampler_name is not None:
             if sampler_name in available_samplers:
                 args.sampler = sampler_name
