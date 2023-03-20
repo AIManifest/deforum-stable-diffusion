@@ -3,7 +3,6 @@ from k_diffusion.external import CompVisDenoiser
 from k_diffusion import sampling
 import torch
 
-
 def sampler_fn(
         c: torch.Tensor,
         uc: torch.Tensor,
@@ -78,13 +77,19 @@ def sampler_fn(
         "dpm_adaptive": sampling.sample_dpm_adaptive,
         "dpmpp_2s_a": sampling.sample_dpmpp_2s_ancestral,
         "dpmpp_2m": sampling.sample_dpmpp_2m,
+        "dpmpp_sde": sampling.sample_dpmpp_sde,
+	  	  "lms_karras": sampling.sample_lms,
+   		  "dmp2_karras": sampling.sample_dpm_2,
+  		  "dpm2_ancestral_karras": sampling.sample_dpm_2_ancestral,
+		    "dpmpp_2s_a_karras": sampling.sample_dpmpp_2s_ancestral,
+	  	  "dpmpp_2m_karras": sampling.sample_dpmpp_2m,
+	  	  "dpmpp_sde_karras": sampling.sample_dpmpp_sde,
     }
 
     samples = sampler_map[args.sampler](**sampler_args)
     return samples
 
-
-def make_inject_timing_fn(inject_timing, model, steps):
+def make_inject_timing_fn(root, args, inject_timing, model, steps):
     """
     inject_timing (int or list of ints or list of floats between 0.0 and 1.0):
         int: compute every inject_timing steps
@@ -93,7 +98,11 @@ def make_inject_timing_fn(inject_timing, model, steps):
     model (CompVisDenoiser)
     steps (int): number of steps
     """
-    all_sigmas = model.get_sigmas(steps)
+    if not "karras" in args.sampler:
+        all_sigmas = model.get_sigmas(steps)
+    else:
+        sigma_min, sigma_max = args.grad_inject_timing[0], args.grad_inject_timing[1]
+        all_sigmas = sampling.get_sigmas_karras(n=steps, sigma_min=sigma_min, sigma_max=sigma_max, device=root.device)
     target_sigmas = torch.empty([0], device=all_sigmas.device)
 
     def timing_fn(sigma):
