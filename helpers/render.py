@@ -8,6 +8,7 @@ from torchvision.utils import make_grid
 from einops import rearrange
 import pandas as pd
 os.environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
+import torch
 import cv2
 import numpy as np
 from PIL import Image, ImageOps, ImageDraw, ImageFont
@@ -258,6 +259,36 @@ def render_image_batch(root, args, anim_args, cond_prompts, uncond_prompts):
                 args.init_image = image
                 results = generate(args, anim_args, root, keys)
                 for image in results:
+                    #draw text on image
+                    if args.enable_draw_text_on_image:
+                        # if frame_idx in args.draw_text_frame:
+                        image = np.array(image)
+                        # Convert the NumPy array to a BGR image
+                        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+                        print(f"\033[35mDrawing Text to\033[0m")
+                        draw_text = args.draw_text_frame[0]
+                        image = draw_text_on_image(image, args, draw_text)
+                        image = np.array(image)
+                        image = Image.fromarray(image)
+
+                    #apply glitch effect
+                    if args.enable_glitch_effect:
+                        print(f"\033[35mApplying Glitch Effect \033[0m")
+                        if args.glitch_effect_diagonal:
+                            image = np.array(image)
+                            # Convert the NumPy array to a BGR image
+                            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+                            image = glitch_image_diagonal(image, args)
+                            image = np.array(image)
+                            image = Image.fromarray(image)
+                        else:
+                            image = np.array(image)
+                            # Convert the NumPy array to a BGR image
+                            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+                            image = glitch_image(image, args)
+                            image = np.array(image)
+                            image = Image.fromarray(image)
+
                     if args.make_grid:
                         all_images.append(T.functional.pil_to_tensor(image))
                     if args.save_samples:
@@ -599,26 +630,28 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
             
             #draw text on image
             if args.enable_draw_text_on_image:
-                if frame_idx in args.draw_text_frame:
-                    print(f"\033[35mDrawing Text to\033[0m: {frame_idx}")
-                    draw_text = args.draw_text_frame[frame_idx]
-                    prev_img = draw_text_on_image(prev_img, args, draw_text)
+                if not args.apply_text_after_image_generation:
+                    if frame_idx in args.draw_text_frame:
+                        print(f"\033[35mDrawing Text to\033[0m: {frame_idx}")
+                        draw_text = args.draw_text_frame[frame_idx]
+                        prev_img = draw_text_on_image(prev_img, args, draw_text)
 
             #apply glitch effect
-            if args.enable_glitch_effect:
-                if args.glitch_every_nth_frame is None or args.glitch_every_nth_frame == 0:
-                    print("\033[35mApplying Glitch Effect Every Frame\033[0m")
-                    if args.glitch_effect_diagonal:
-                        prev_img = glitch_image_diagonal(prev_img, args)
-                    else:
-                        prev_img = glitch_image(prev_img, args)
-                else:
-                    if frame_idx % args.glitch_every_nth_frame == 0:
-                        print(f"\033[35mApplying Glitch Effect Every\033[0m: {args.glitch_every_nth_frame}")
+            if not args.apply_glitch_after_image_generation:
+                if args.enable_glitch_effect:
+                    if args.glitch_every_nth_frame is None or args.glitch_every_nth_frame == 0:
+                        print("\033[35mApplying Glitch Effect Every Frame\033[0m")
                         if args.glitch_effect_diagonal:
                             prev_img = glitch_image_diagonal(prev_img, args)
                         else:
                             prev_img = glitch_image(prev_img, args)
+                    else:
+                        if frame_idx % args.glitch_every_nth_frame == 0:
+                            print(f"\033[35mApplying Glitch Effect Every\033[0m: {args.glitch_every_nth_frame}")
+                            if args.glitch_effect_diagonal:
+                                prev_img = glitch_image_diagonal(prev_img, args)
+                            else:
+                                prev_img = glitch_image(prev_img, args)
 
             # apply color matching
             if anim_args.color_coherence != 'None':
@@ -702,31 +735,56 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
         # sample the diffusion model
         sample, image = generate(args, anim_args, root, keys, frame_idx, return_latent=False, return_sample=True)
 
-        #draw text on image
-        # if args.enable_draw_text_on_image:
-        #     if frame_idx in args.draw_text_frame:
-        #         image = np.array(image)
-        #         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-        #         print(f"\033[35mDrawing Text to\033[0m: {frame_idx}")
-        #         draw_text = args.draw_text_frame[frame_idx]
-        #         image = draw_text_on_image(image, args, draw_text)
-        #         image = Image.fromarray(image)
+        if args.apply_text_after_image_generation:
+            if args.enable_draw_text_on_image:
+                if frame_idx in args.draw_text_frame:
+                    # Convert to Numpy array and change color space
+                    sample = sample.to("cpu")
+                    sample = sample_to_cv2(sample, type=np.uint8)
+                    sample = cv2.cvtColor(sample.astype(np.uint8), cv2.COLOR_RGB2BGR)
+                    
+                    # Draw text on image
+                    print(f"\033[35mDrawing Text to\033[0m: {frame_idx}")
+                    draw_text = args.draw_text_frame[frame_idx]
+                    sample = draw_text_on_image(sample, args, draw_text)
+                    
+                    # Convert back to Torch tensor and transpose
+                    sample = np.array(sample, dtype=np.uint8)
+                    sample = sample_from_cv2(sample)
+                    sample = sample.to("cuda")
+                    
+        if args.apply_glitch_after_image_generation:
+            if args.enable_glitch_effect:
+                if args.glitch_every_nth_frame is None or args.glitch_every_nth_frame == 0:
+                    # Convert to Numpy array and change color space
+                    sample = sample.to("cpu")
+                    sample = sample_to_cv2(sample, type=np.uint8)
+                    sample = cv2.cvtColor(sample.astype(np.uint8), cv2.COLOR_RGB2BGR)
+                    
+                    # Apply glitch effect
+                    print("\033[35mApplying Glitch Effect Every Frame\033[0m")
+                    sample = glitch_image(sample, args)
+                    
+                    # Convert back to Torch tensor and transpose
+                    sample = np.array(sample, dtype=np.uint8)
+                    sample = sample_from_cv2(sample)
+                    sample = sample.to("cuda")
+                else:
+                    if frame_idx % args.glitch_every_nth_frame == 0:
+                        # Convert to Numpy array and change color space
+                        sample = sample.to("cpu")
+                        sample = sample_to_cv2(sample, type=np.uint8)
+                        sample = cv2.cvtColor(sample.astype(np.uint8), cv2.COLOR_RGB2BGR)
+                        
+                        # Apply glitch effect
+                        print(f"\033[35mApplying Glitch Effect Every\033[0m: {args.glitch_every_nth_frame}")
+                        sample = glitch_image(sample, args)
+                        
+                        # Convert back to Torch tensor and transpose
+                        sample = np.array(sample, dtype=np.uint8)
+                        sample = sample_from_cv2(sample)
+                        sample = sample.to("cuda")
 
-        # #apply glitch effect
-        # if args.enable_glitch_effect:
-        #     if args.glitch_every_nth_frame is None or args.glitch_every_nth_frame == 0:
-        #         image = np.array(image)
-        #         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-        #         print("\033[35mApplying Glitch Effect Every Frame\033[0m")
-        #         image = glitch_image(image, args)
-        #         image = Image.fromarray(image)
-        #     else:
-        #         if frame_idx % args.glitch_every_nth_frame == 0:
-        #             image = np.array(image)
-        #             image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-        #             print(f"\033[35mApplying Glitch Effect Every\033[0m: {args.glitch_every_nth_frame}")
-        #             image = glitch_image(image, args)
-        #             image = Image.fromarray(image)
 
         # intercept and override to grayscale
         if anim_args.color_force_grayscale:
@@ -746,6 +804,7 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
             frame_idx += turbo_steps
         else:    
             filename = f"{args.timestring}_{frame_idx:05}.png"
+            print(f"Saving File to: {filename}")
             # Save image to 8bpc or 16bpc
             save_8_16_or_32bpc_image(image, args.outdir, filename, args.bit_depth_output)
             if anim_args.save_depth_maps:
