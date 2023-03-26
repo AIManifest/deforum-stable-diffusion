@@ -62,7 +62,7 @@ def hybrid_composite(args, anim_args, frame_idx, prev_img, depth_model, hybrid_c
     prev_frame = os.path.join(args.outdir, 'hybridframes', f"prev{frame_idx:05}.jpg")
     prev_img_hybrid = Image.fromarray(prev_img)
     video_image = Image.open(video_frame)
-    video_image = video_image.resize((args.W, args.H), Image.Resampling.LANCZOS)
+    video_image = video_image.resize((args.W, args.H), Image.LANCZOS)
     hybrid_mask = None
 
     # composite mask types
@@ -416,4 +416,3 @@ def extend_flow(flow, w, h):
     new_flow[y_offset:y_offset+flow_h, x_offset:x_offset+flow_w, :] = flow
     # Return the extended image
     return new_flow
-    

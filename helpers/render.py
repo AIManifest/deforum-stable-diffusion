@@ -14,7 +14,9 @@ import numpy as np
 from PIL import Image, ImageOps, ImageDraw, ImageFont
 import pathlib
 import torchvision.transforms as T
+from cldm.ddim_hacked import DDIMSampler
 
+from .controlnet import render_control_process
 from .rich_helper import print_animation_table
 from .generate import generate, add_noise
 from .prompt import sanitize
@@ -732,8 +734,53 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
                 mask_frame = os.path.join(args.outdir, 'maskframes', f"{frame_idx+1:05}.jpg")
                 args.mask_file = mask_frame
 
-        # sample the diffusion model
-        sample, image = generate(args, anim_args, root, keys, frame_idx, return_latent=False, return_sample=True)
+        #control net inference
+        if root.control_net_model:
+            init_frame = os.path.join(args.outdir, 'inputframes', f"{frame_idx+1:05}.jpg")            
+            print(f"Using video init frame {init_frame}")
+            args.init_image = init_frame
+            input_image = np.asarray(Image.open(args.init_image), dtype=np.uint8)
+            input_image = input_image
+            prompt = args.cond_prompt
+            a_prompt = args.a_prompt
+            n_prompt = args.uncond_prompt
+            num_samples = args.n_samples
+            guess_mode = args.guess_mode
+            seed = args.seed
+            scale = args.scale
+            eta = args.ddim_eta
+            image_resolution = args.image_resolution
+            detect_resolution = args.detect_resolution
+            ddim_steps = args.steps
+            low_threshold = args.low_threshold
+            high_threshold = args.high_threshold
+            _, sample = render_control_process(root,
+                                              args,
+                                              anim_args,
+                                              keys,
+                                              frame_idx,
+                                              input_image,
+                                              prompt,
+                                              a_prompt,
+                                              n_prompt,
+                                              num_samples,
+                                              image_resolution,
+                                              detect_resolution,
+                                              ddim_steps,
+                                              guess_mode,
+                                              strength,
+                                              scale,
+                                              seed,
+                                              eta,
+                                              low_threshold,
+                                              high_threshold)
+            new_sample = sample
+            sample = sample_from_cv2(sample)
+            image = Image.fromarray(new_sample)
+            
+        else:
+            # sample the diffusion model
+            sample, image = generate(args, anim_args, root, keys, frame_idx, return_latent=False, return_sample=True)
 
         if args.apply_text_after_image_generation:
             if args.enable_draw_text_on_image:
