@@ -378,7 +378,6 @@ def create_first_video(frame_folder, output_filename, frame_rate=30, quality=17)
 #     output, error = process.communicate()
 #     display.display(error)
 
-
 def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
     # handle hybrid video generation
     if anim_args.animation_mode in ['2D','3D']:
@@ -486,6 +485,7 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
         sigma = keys.sigma_schedule_series[frame_idx]
         amount = keys.amount_schedule_series[frame_idx]
         threshold = keys.threshold_schedule_series[frame_idx]
+        anim_args.midas_weight = keys.midas_weight_series[frame_idx]
         hybrid_comp_schedules = {
             "alpha": keys.hybrid_comp_alpha_schedule_series[frame_idx],
             "mask_blend_alpha": keys.hybrid_comp_mask_blend_alpha_schedule_series[frame_idx],
