@@ -186,6 +186,7 @@ def anim_frame_warp_2d(prev_img_cv2, args, anim_args, keys, frame_idx):
     zoom = keys.zoom_series[frame_idx]
     translation_x = keys.translation_x_series[frame_idx]
     translation_y = keys.translation_y_series[frame_idx]
+    # anim_args.border_schedule = keys.border_series[frame_idx]
 
     center = (args.W // 2, args.H // 2)
     trans_mat = np.float32([[1, 0, translation_x], [0, 1, translation_y]])
@@ -209,7 +210,7 @@ def anim_frame_warp_2d(prev_img_cv2, args, anim_args, keys, frame_idx):
         prev_img_cv2,
         xform,
         (prev_img_cv2.shape[1], prev_img_cv2.shape[0]),
-        borderMode=cv2.BORDER_WRAP if anim_args.border == 'wrap' else cv2.BORDER_REPLICATE
+        borderMode=cv2.BORDER_WRAP if keys.border_series[frame_idx] == 'wrap' else cv2.BORDER_REPLICATE
     )
 
 import torch
@@ -283,6 +284,9 @@ def transform_image_3d(device, prev_img_cv2, depth_tensor, rot_mat, translate, a
     near = keys.near_series[frame_idx]
     far = keys.far_series[frame_idx]
     fov_deg = keys.fov_series[frame_idx]
+    # anim_args.sampling_schedule = keys.sampling_series[frame_idx]
+    # anim_args.padding_schedule = keys.padding_series[frame_idx]
+
     persp_cam_old = p3d.FoVPerspectiveCameras(near, far, aspect_ratio, fov=fov_deg, degrees=True, device=device)
     persp_cam_new = p3d.FoVPerspectiveCameras(near, far, aspect_ratio, fov=fov_deg, degrees=True, R=rot_mat, T=torch.tensor([translate]), device=device)
 
@@ -308,8 +312,8 @@ def transform_image_3d(device, prev_img_cv2, depth_tensor, rot_mat, translate, a
     new_image = torch.nn.functional.grid_sample(
         image_tensor.add(1/512 - 0.0001).unsqueeze(0), 
         offset_coords_2d, 
-        mode=anim_args.sampling_mode, 
-        padding_mode=anim_args.padding_mode, 
+        mode=keys.sampling_series[frame_idx], 
+        padding_mode=keys.padding_series[frame_idx], 
         align_corners=False
     )
 
@@ -342,6 +346,9 @@ class DeformAnimKeys():
         self.near_series = get_inbetweens(parse_key_frames(anim_args.near_schedule), anim_args.max_frames)
         self.far_series = get_inbetweens(parse_key_frames(anim_args.far_schedule), anim_args.max_frames)
         self.fov_series = get_inbetweens(parse_key_frames(anim_args.fov_schedule), anim_args.max_frames)
+        self.border_series = get_inbetweens(parse_key_frames(anim_args.border_schedule), anim_args.max_frames, is_single_string = True)
+        self.padding_series = get_inbetweens(parse_key_frames(anim_args.padding_schedule), anim_args.max_frames, is_single_string = True)
+        self.sampling_series = get_inbetweens(parse_key_frames(anim_args.sampling_schedule), anim_args.max_frames, is_single_string = True)
         self.cfg_scale_schedule = get_inbetweens(parse_key_frames(anim_args.cfg_scale_schedule), anim_args.max_frames)
         self.noise_schedule_series = get_inbetweens(parse_key_frames(anim_args.noise_schedule), anim_args.max_frames)
         self.strength_schedule_series = get_inbetweens(parse_key_frames(anim_args.strength_schedule), anim_args.max_frames)
