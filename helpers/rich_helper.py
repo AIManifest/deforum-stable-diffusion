@@ -41,6 +41,11 @@ def print_animation_table(args, anim_args, keys, frame_idx):
     table2.add_column("Threshold", justify="left")
     table2.add_column("Midas Weight", justify="left")
 
+    table3 = Table(show_header=True, header_style="bold green", box=box.ASCII_DOUBLE_HEAD)
+    table3.add_column("Border Mode", justify="left")
+    table3.add_column("Padding Mode", justify="left")
+    table3.add_column("Sampling Mode", justify="left")
+
     table1.add_row(str(int(keys.steps_schedule_series[frame_idx])),
                   str(args.scale),
                   str(args.sampler),
@@ -66,6 +71,11 @@ def print_animation_table(args, anim_args, keys, frame_idx):
                   f"{keys.amount_schedule_series[frame_idx]}",
                   f"{keys.threshold_schedule_series[frame_idx]}",
                   f"{keys.midas_weight_series[frame_idx]}")
+
+    table3.add_row(f"{keys.border_series[frame_idx]}",
+                  f"{keys.padding_series[frame_idx]}",
+                  f"{keys.sampling_series[frame_idx]}")
                   
     console.print(table1)
     console.print(table2)
+    console.print(table3)
