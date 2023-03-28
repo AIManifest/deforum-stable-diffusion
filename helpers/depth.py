@@ -220,4 +220,3 @@ class DepthModel():
             cv2.imwrite(filename.replace(".png", ".exr"), temp_image)
         else: # 8 bit
             Image.fromarray(temp_image.astype(np.uint8)).save(filename)
-
