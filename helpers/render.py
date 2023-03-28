@@ -486,6 +486,9 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
         amount = keys.amount_schedule_series[frame_idx]
         threshold = keys.threshold_schedule_series[frame_idx]
         anim_args.midas_weight = keys.midas_weight_series[frame_idx]
+        # anim_args.border_schedule = keys.border_series[frame_idx]
+        # anim_args.padding_schedule = keys.padding_series[frame_idx]
+        # anim_args.sampling_schedule = keys.sampling_series[frame_idx]
         hybrid_comp_schedules = {
             "alpha": keys.hybrid_comp_alpha_schedule_series[frame_idx],
             "mask_blend_alpha": keys.hybrid_comp_mask_blend_alpha_schedule_series[frame_idx],
@@ -532,30 +535,30 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
                         if anim_args.hybrid_motion_use_prev_img:
                             if advance_prev:
                                 matrix = get_matrix_for_hybrid_motion_prev(tween_frame_idx, (args.W, args.H), inputfiles, turbo_prev_image, anim_args.hybrid_motion)
-                                turbo_prev_image = image_transform_ransac(turbo_prev_image, matrix, anim_args.hybrid_motion, cv2.BORDER_WRAP if anim_args.border == 'wrap' else cv2.BORDER_REPLICATE)
+                                turbo_prev_image = image_transform_ransac(turbo_prev_image, matrix, anim_args.hybrid_motion, cv2.BORDER_WRAP if keys.border_series[frame_idx] == 'wrap' else cv2.BORDER_REPLICATE)
                             if advance_next:
                                 matrix = get_matrix_for_hybrid_motion_prev(tween_frame_idx, (args.W, args.H), inputfiles, turbo_next_image, anim_args.hybrid_motion)
-                                turbo_next_image = image_transform_ransac(turbo_next_image, matrix, anim_args.hybrid_motion, cv2.BORDER_WRAP if anim_args.border == 'wrap' else cv2.BORDER_REPLICATE)
+                                turbo_next_image = image_transform_ransac(turbo_next_image, matrix, anim_args.hybrid_motion, cv2.BORDER_WRAP if keys.border_series[frame_idx] == 'wrap' else cv2.BORDER_REPLICATE)
                         else:
                             matrix = get_matrix_for_hybrid_motion(tween_frame_idx-1, (args.W, args.H), inputfiles, anim_args.hybrid_motion)
                             if advance_prev:
-                                turbo_prev_image = image_transform_ransac(turbo_prev_image, matrix, anim_args.hybrid_motion, cv2.BORDER_WRAP if anim_args.border == 'wrap' else cv2.BORDER_REPLICATE)
+                                turbo_prev_image = image_transform_ransac(turbo_prev_image, matrix, anim_args.hybrid_motion, cv2.BORDER_WRAP if keys.border_series[frame_idx] == 'wrap' else cv2.BORDER_REPLICATE)
                             if advance_next:
-                                turbo_next_image = image_transform_ransac(turbo_next_image, matrix, anim_args.hybrid_motion, cv2.BORDER_WRAP if anim_args.border == 'wrap' else cv2.BORDER_REPLICATE)
+                                turbo_next_image = image_transform_ransac(turbo_next_image, matrix, anim_args.hybrid_motion, cv2.BORDER_WRAP if keys.border_series[frame_idx] == 'wrap' else cv2.BORDER_REPLICATE)
                     if anim_args.hybrid_motion in ['Optical Flow']:
                         if anim_args.hybrid_motion_use_prev_img:
                             if advance_prev:
                                 flow = get_flow_for_hybrid_motion_prev(tween_frame_idx-1, (args.W, args.H), inputfiles, hybrid_frame_path, turbo_prev_image, anim_args.hybrid_flow_method, anim_args.hybrid_comp_save_extra_frames)
-                                turbo_prev_image = image_transform_optical_flow(turbo_prev_image, flow, cv2.BORDER_WRAP if anim_args.border == 'wrap' else cv2.BORDER_REPLICATE)
+                                turbo_prev_image = image_transform_optical_flow(turbo_prev_image, flow, cv2.BORDER_WRAP if keys.border_series[frame_idx] == 'wrap' else cv2.BORDER_REPLICATE)
                             if advance_next:
                                 flow = get_flow_for_hybrid_motion_prev(tween_frame_idx-1, (args.W, args.H), inputfiles, hybrid_frame_path, turbo_next_image, anim_args.hybrid_flow_method, anim_args.hybrid_comp_save_extra_frames)
-                                turbo_next_image = image_transform_optical_flow(turbo_next_image, flow, cv2.BORDER_WRAP if anim_args.border == 'wrap' else cv2.BORDER_REPLICATE)
+                                turbo_next_image = image_transform_optical_flow(turbo_next_image, flow, cv2.BORDER_WRAP if keys.border_series[frame_idx] == 'wrap' else cv2.BORDER_REPLICATE)
                         else:
                             flow = get_flow_for_hybrid_motion(tween_frame_idx-1, (args.W, args.H), inputfiles, hybrid_frame_path, anim_args.hybrid_flow_method, anim_args.hybrid_comp_save_extra_frames)
                             if advance_prev:
-                                turbo_prev_image = image_transform_optical_flow(turbo_prev_image, flow, cv2.BORDER_WRAP if anim_args.border == 'wrap' else cv2.BORDER_REPLICATE)
+                                turbo_prev_image = image_transform_optical_flow(turbo_prev_image, flow, cv2.BORDER_WRAP if keys.border_series[frame_idx] == 'wrap' else cv2.BORDER_REPLICATE)
                             if advance_next:
-                                turbo_next_image = image_transform_optical_flow(turbo_next_image, flow, cv2.BORDER_WRAP if anim_args.border == 'wrap' else cv2.BORDER_REPLICATE)
+                                turbo_next_image = image_transform_optical_flow(turbo_next_image, flow, cv2.BORDER_WRAP if keys.border_series[frame_idx] == 'wrap' else cv2.BORDER_REPLICATE)
                       
                 # Transformed raw image before color coherence and noise. Used for mask overlay
                 if args.use_mask and args.overlay_mask:
@@ -601,13 +604,13 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
                         matrix = get_matrix_for_hybrid_motion_prev(frame_idx, (args.W, args.H), inputfiles, prev_img, anim_args.hybrid_motion)
                     else:
                         matrix = get_matrix_for_hybrid_motion(frame_idx-1, (args.W, args.H), inputfiles, anim_args.hybrid_motion)
-                    prev_img = image_transform_ransac(prev_img, matrix, anim_args.hybrid_motion, cv2.BORDER_WRAP if anim_args.border == 'wrap' else cv2.BORDER_REPLICATE)    
+                    prev_img = image_transform_ransac(prev_img, matrix, anim_args.hybrid_motion, cv2.BORDER_WRAP if keys.border_series[frame_idx] == 'wrap' else cv2.BORDER_REPLICATE)    
                 if anim_args.hybrid_motion in ['Optical Flow']:
                     if anim_args.hybrid_motion_use_prev_img:
                         flow = get_flow_for_hybrid_motion_prev(frame_idx-1, (args.W, args.H), inputfiles, hybrid_frame_path, prev_img, anim_args.hybrid_flow_method, anim_args.hybrid_comp_save_extra_frames)
                     else:
                         flow = get_flow_for_hybrid_motion(frame_idx-1, (args.W, args.H), inputfiles, hybrid_frame_path, anim_args.hybrid_flow_method, anim_args.hybrid_comp_save_extra_frames)
-                    prev_img = image_transform_optical_flow(prev_img, flow, cv2.BORDER_WRAP if anim_args.border == 'wrap' else cv2.BORDER_REPLICATE)
+                    prev_img = image_transform_optical_flow(prev_img, flow, cv2.BORDER_WRAP if keys.border_series[frame_idx] == 'wrap' else cv2.BORDER_REPLICATE)
                 if anim_args.hybrid_use_video_as_mse_image:
                     args.init_mse_image = os.path.join(args.outdir, 'inputframes', f"{frame_idx:05}.jpg")
                     print(f"Using {args.init_mse_image} as init_mse_image")
@@ -663,7 +666,7 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
                     video_color_coherence_frame = int(frame_idx) % int(anim_args.color_coherence_video_every_N_frames) == 0
                     if video_color_coherence_frame:
                         prev_vid_img = Image.open(os.path.join(args.outdir, 'inputframes', f"{frame_idx:05}.jpg"))
-                        prev_vid_img = prev_vid_img.resize((args.W, args.H), Image.Resampling.LANCZOS)
+                        prev_vid_img = prev_vid_img.resize((args.W, args.H), Image.LANCZOS)
                         color_match_sample = np.asarray(prev_vid_img)
                 if color_match_sample is None:
                     color_match_sample = prev_img.copy()
