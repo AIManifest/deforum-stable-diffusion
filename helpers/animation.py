@@ -337,6 +337,7 @@ class DeformAnimKeys():
         self.perspective_flip_phi_series = get_inbetweens(parse_key_frames(anim_args.perspective_flip_phi), anim_args.max_frames)
         self.perspective_flip_gamma_series = get_inbetweens(parse_key_frames(anim_args.perspective_flip_gamma), anim_args.max_frames)
         self.perspective_flip_fv_series = get_inbetweens(parse_key_frames(anim_args.perspective_flip_fv), anim_args.max_frames)
+        self.midas_weight_series = get_inbetweens(parse_key_frames(anim_args.midas_weight_schedule), anim_args.max_frames)
         self.aspect_ratio_series = get_inbetweens(parse_key_frames(anim_args.aspect_ratio_schedule), anim_args.max_frames)
         self.near_series = get_inbetweens(parse_key_frames(anim_args.near_schedule), anim_args.max_frames)
         self.far_series = get_inbetweens(parse_key_frames(anim_args.far_schedule), anim_args.max_frames)
