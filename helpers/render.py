@@ -36,6 +36,11 @@ except ModuleNotFoundError:
     print(running)
     from numpngw import write_png
 
+import sys
+sys.path.extend(['Real-ESRGAN'])
+
+from upscale_helper import auto_upscale_image
+
 #import tifffile # Un-comment to save 32bpc TIFF images too. Also un-comment line within 'def save_8_16_or_32bpc_image()'
 
 def glitch_image(sample, args):
@@ -299,6 +304,23 @@ def render_image_batch(root, args, anim_args, cond_prompts, uncond_prompts):
                         else:
                             filename = f"{args.timestring}_{index:05}_{args.seed}.png"
                         save_8_16_or_32bpc_image(image, args.outdir, filename, args.bit_depth_output)
+                    if args.auto_upscale:
+                        args.input = os.path.join(args.outdir, filename)
+                        args.model_name = "realesr-general-x4v3"
+                        args.output = args.outdir
+                        args.denoise_strength = 1
+                        args.outscale = 4
+                        args.model_path = None
+                        args.suffix = "upscaled"
+                        args.tile = 0
+                        args.tile_pad = 10
+                        args.pre_pad = 0
+                        args.face_enhance = False
+                        args.fp32 = True
+                        args.alpha_upsampler = "realesrgan"
+                        args.ext = "auto"
+                        args.gpu_id = 0
+                        auto_upscale_image(args)
                     if args.display_samples:
                         if args.bit_depth_output != 8:
                             image = convert_image_to_8bpc(image, args.bit_depth_output)
