@@ -905,6 +905,7 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
             print(f"Progress Animation Video Compiled, Saved to: {args.outdir}, Filename: {output_filename}")
             print(f"Video Rendered in: {time_elapsed} seconds..")
     if frame_idx == anim_args.max_frames:
+        frame_folder = args.outdir
         output_filename_final = f"{args.outdir}/{args.timestring}_final.mp4"
         create_first_video(frame_folder, output_filename_final, frame_rate=30, quality=17)
         print(f"Animation Video Compled, Saved to: {args.outdir}, Filename: {output_filename_final}")
