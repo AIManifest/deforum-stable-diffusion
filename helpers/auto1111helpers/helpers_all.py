@@ -62,7 +62,9 @@ except:
 
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 dtype = torch.float32
+dtype_unet = dtype
 device_cuda = device
+t_autocast = torch.autocast("cuda")
 invalid_filename_chars = '<>:"/\\|?*\n'
 invalid_filename_prefix = ' '
 invalid_filename_postfix = ' .'
