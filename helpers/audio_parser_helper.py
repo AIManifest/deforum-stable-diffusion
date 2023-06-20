@@ -112,6 +112,7 @@ def create_music_video_animation_args(root, music_video_args):
         print("\033[38;2;255;192;203m--Initializing Audio Analysis--")
         audio_root = os.path.join(root.output_path_gdrive, "audio")
         audio_root = Path(audio_root)
+        video_url = music_video_args.yt_video_url
         os.makedirs(audio_root, exist_ok=True)
         storyboard = OmegaConf.create()
         # check if user provided an audio filepath (or we already have one from youtube) before attempting to download
@@ -127,14 +128,36 @@ def create_music_video_animation_args(root, music_video_args):
                 , audio_fpath = '' # @param {type:'string'}
             )
 
-            # @markdown `video_url` - URL of a youtube video to download as a source for audio and potentially for text transcription as well.
-
-            # @markdown `audio_fpath` - Optionally provide an audio file instead of relying on a youtube download. Name it something other than 'audio.mp3', 
-            # @markdown                 otherwise it might get overwritten accidentally.
-
-
             d_.pop('_')
             storyboard.params = d_
+
+            ytdl_prefix = "DOWNLOADED__"
+            ytdl_fname = f"{str(audio_root / ytdl_prefix)}%(title)s.%(ext)s"
+            
+            running = subprocess.Popen(['yt-dlp', '-o', f'{ytdl_fname}', f'{video_url}'],
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE)
+            output, error = running.communicate()
+            print(error)
+
+            matched_files = audio_root.glob(ytdl_prefix+"*")
+            most_recent_file = max(matched_files, key=os.path.getctime)
+            print(f"downloaded: {most_recent_file}")
+            ytdl_fname = most_recent_file
+            # new attribute cause why not
+            music_video_args.downloaded_video_fpath = ytdl_fname
+
+            #audio_fpath = str( root / 'audio.aac' )
+            audio_fpath = str( audio_root / 'audio.m4a' )
+            input_audio = ytdl_fname
+            #!ffmpeg -y -i "{input_audio}" -c:a aac {audio_fpath}
+            #!ffmpeg -y -i "{input_audio}" -vn -acodec copy {audio_fpath}
+            running = subprocess.Popen(['ffmpeg', '-y', '-i', f'{input_audio}',
+                                    '-vn', '-c:a', 'aac', f'{audio_fpath}'],
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE)
+            output, error = running.communicate()
+            print(error)
             
     # to do: write audio and subtitle paths/meta to storyboard
     audio_fpath = str( audio_root / 'audio.m4a' )
