@@ -1,5 +1,6 @@
 from omegaconf import OmegaConf
 from pathlib import Path
+from loguru import logger
 
 import torch
 import copy
@@ -109,7 +110,7 @@ def get_audio_duration_seconds(audio_fpath):
 
 def create_music_video_animation_args(root, music_video_args):
     if music_video_args.yt_video_url:
-        print("\033[38;2;255;192;203m--Initializing Audio Analysis--")
+        logger.info("--Initializing Audio Analysis--")
         audio_root = os.path.join(root.output_path_gdrive, "audio")
         audio_root = Path(audio_root)
         video_url = music_video_args.yt_video_url
@@ -133,7 +134,7 @@ def create_music_video_animation_args(root, music_video_args):
 
             ytdl_prefix = "DOWNLOADED__"
             ytdl_fname = f"{str(audio_root / ytdl_prefix)}%(title)s.%(ext)s"
-            
+            logger.info("..Downloading YT Video..")
             running = subprocess.Popen(['yt-dlp', '-o', f'{ytdl_fname}', f'{video_url}'],
                                         stdout=subprocess.PIPE,
                                         stderr=subprocess.PIPE)
@@ -149,11 +150,20 @@ def create_music_video_animation_args(root, music_video_args):
 
             #audio_fpath = str( root / 'audio.aac' )
             audio_fpath = str( audio_root / 'audio.m4a' )
+            audio_xpath = str( audio_root / 'audio.mp3' )
             input_audio = ytdl_fname
             #!ffmpeg -y -i "{input_audio}" -c:a aac {audio_fpath}
             #!ffmpeg -y -i "{input_audio}" -vn -acodec copy {audio_fpath}
+            logger.info("..Converting to '.m4a'..")
             running = subprocess.Popen(['ffmpeg', '-y', '-i', f'{input_audio}',
                                     '-vn', '-c:a', 'aac', f'{audio_fpath}'],
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE)
+            output, error = running.communicate()
+            print(error)
+            logger.info("..Creating '.mp3' file for demucs separation..")
+            running = subprocess.Popen(['ffmpeg', '-y', '-i', f'{audio_fpath}',
+                                    f'{audio_xpath}'],
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE)
             output, error = running.communicate()
@@ -194,6 +204,7 @@ def create_music_video_animation_args(root, music_video_args):
     torch.cuda.empty_cache()
 
     if whisper_seg:
+        logger.info("..Segmenting with Whisper..")
         storyboard_fname = audio_root / 'storyboard.yaml'
         running = subprocess.Popen(["whisper", 
                 "--model", 
@@ -266,7 +277,7 @@ def create_music_video_animation_args(root, music_video_args):
         music_video_args.out_path = audio_root
 
         separate_audio_stems(music_video_args)
-
+        logger.info("..Printing to A Interactive Downloadable Table..")
         pn.extension('tabulator') # I don't know that specifying 'tabulator' here is even necessary...
         pn.widgets.Tabulator.theme = 'site'
 
