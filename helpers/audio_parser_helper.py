@@ -109,13 +109,13 @@ def get_audio_duration_seconds(audio_fpath):
         return float(outv.strip())
 
 def create_music_video_animation_args(root, music_video_args):
+    audio_root = os.path.join(root.output_path_gdrive, "audio")
+    audio_root = Path(audio_root)
+    storyboard = OmegaConf.create()
     if music_video_args.yt_video_url:
-        logger.info("--Initializing Audio Analysis--")
-        audio_root = os.path.join(root.output_path_gdrive, "audio")
-        audio_root = Path(audio_root)
+        logger.info("--Initializing Audio Analysis--")        
         video_url = music_video_args.yt_video_url
         os.makedirs(audio_root, exist_ok=True)
-        storyboard = OmegaConf.create()
         # check if user provided an audio filepath (or we already have one from youtube) before attempting to download
         if music_video_args.audio_fpath is None:
             storyboard = OmegaConf.create()
@@ -170,16 +170,16 @@ def create_music_video_animation_args(root, music_video_args):
             print(error)
             
     # to do: write audio and subtitle paths/meta to storyboard
-    audio_fpath = str( audio_root / 'audio.m4a' )
-    music_video_args.audio_fpath = audio_fpath
-
+    audio_fpath = str( audio_root / 'audio.m4a' ) if music_video_args.audio_fpath is None else music_video_args.audio_fpath
+    # music_video_args.audio_fpath = audio_fpath
+    print(f'AUDIO FPATH: {audio_fpath}')
     storyboard_fname = audio_root / 'storyboard.yaml'
     with open(storyboard_fname,'wb') as fp:
         OmegaConf.save(config=storyboard, f=fp.name)
 
     if music_video_args.video_duration is None:
         # estimate duration from audio file
-        audio_fpath = music_video_args.audio_fpath
+        audio_fpath = music_video_args.audio_fpath if music_video_args.audio_fpath is not None else audio_fpath
         music_video_args.video_duration = get_audio_duration_seconds(audio_fpath)
         print(music_video_args.video_duration)
 
@@ -207,16 +207,20 @@ def create_music_video_animation_args(root, music_video_args):
         logger.info("..Segmenting with Whisper..")
         storyboard_fname = audio_root / 'storyboard.yaml'
         audio_xpath = str( audio_root / 'audio.mp3' )
+        audio_xpath = music_video_args.audio_fpath if music_video_args.audio_fpath is not None else audio_xpath
+        print(f'AUDIO: {audio_xpath}')
         running = subprocess.Popen(["whisper", 
                 "--model", 
-                "large", 
+                "large-v2", 
                 "--word_timestamps", 
-                "True", "-o", str(audio_root), audio_xpath], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                "True",
+                "--condition_on_previous_text", "False", "-o", str(audio_root), audio_xpath], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, error = running.communicate()
         print(output, error)
 
         # outputs text files as audio.* locally
         #with Path('audio.json').open() as f:
+        music_video_args.audio_fpath = str( audio_root / 'audio.m4a' )
         whisper_seg_fpath = Path(music_video_args.audio_fpath).with_suffix('.json')
         whisper_seg_fpath = audio_root / whisper_seg_fpath
         with whisper_seg_fpath.open() as f:
