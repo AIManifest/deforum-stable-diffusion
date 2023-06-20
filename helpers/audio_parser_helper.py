@@ -206,11 +206,12 @@ def create_music_video_animation_args(root, music_video_args):
     if whisper_seg:
         logger.info("..Segmenting with Whisper..")
         storyboard_fname = audio_root / 'storyboard.yaml'
+        audio_xpath = str( audio_root / 'audio.mp3' )
         running = subprocess.Popen(["whisper", 
                 "--model", 
                 "large", 
                 "--word_timestamps", 
-                "True", "-o", str(audio_root), audio_fpath], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                "True", "-o", str(audio_root), audio_xpath], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, error = running.communicate()
         print(output, error)
 
