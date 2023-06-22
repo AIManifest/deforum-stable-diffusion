@@ -109,7 +109,7 @@ def get_audio_duration_seconds(audio_fpath):
         return float(outv.strip())
 
 def create_music_video_animation_args(root, music_video_args):
-    audio_root = os.path.join(root.output_path_gdrive, "audio")
+    audio_root = os.path.join(root.output_path_gdrive, f"{music_video_args.project_name}_audio")
     audio_root = Path(audio_root)
     storyboard = OmegaConf.create()
     if music_video_args.yt_video_url:
