@@ -2994,7 +2994,7 @@ def apply_optimizations():
         print("Applying v1 cross attention optimization.")
         ldm.modules.attention.CrossAttention.forward = split_cross_attention_forward_v1
         optimization_method = 'V1'
-    elif not disable_opt_split_attention and (use_split_cross_attention_forward_invokeAI or not opt_split_attention and not torch.cuda.is_available()):
+    elif use_split_cross_attention_forward_invokeAI and not torch.cuda.is_available()):
         print("Applying cross attention optimization (InvokeAI).")
         ldm.modules.attention.CrossAttention.forward = split_cross_attention_forward_invokeAI
         optimization_method = 'InvokeAI'
