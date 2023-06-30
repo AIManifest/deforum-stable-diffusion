@@ -65,6 +65,7 @@ dtype = torch.float32
 dtype_unet = dtype
 device_cuda = device
 t_autocast = torch.autocast("cuda")
+opts_upcast_attn = False
 invalid_filename_chars = '<>:"/\\|?*\n'
 invalid_filename_prefix = ' '
 invalid_filename_postfix = ' .'
