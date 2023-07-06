@@ -51,7 +51,8 @@ try:
     use_split_cross_attention_forward_invokeAI = False #@param{type:'boolean'}
     use_cross_attention_attnblock_forward = False #@param{type:'boolean'}
 except:
-    embeddings_dir = f"{os.getcwd()}/stable-diffusion-webui/embeddings/" #@param {type:"string"}
+    models_path_gdrive = f"{os.getcwd()}/AI/models"
+    embeddings_dir = f"{os.getcwd()}/AI/models"
     hypernetwork_dir = f"{os.getcwd()}/stable-diffusion-webui/hypernetworks" #@param {type:"string"}
     data_dir = f"{os.getcwd()}/stable-diffusion-webui/" #@param {type:"string"}
     use_xformers = True #@param{type:'boolean'}
