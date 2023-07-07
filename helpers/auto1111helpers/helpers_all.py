@@ -74,6 +74,7 @@ re_nonletters = re.compile(r'[\s' + string.punctuation + ']+')
 re_pattern = re.compile(r"(.*?)(?:\[([^\[\]]+)\]|$)")
 re_pattern_arg = re.compile(r"(.*)<([^>]*)>$")
 max_filename_part_length = 128
+CLIP_stop_at_last_layers=1
 
 #images
 def sanitize_filename_part(text, replace_spaces=True):
@@ -3639,7 +3640,6 @@ class FrozenCLIPEmbedderWithCustomWords(FrozenCLIPEmbedderWithCustomWordsBase):
         return tokenized
 
     def encode_with_transformers(self, tokens):
-        CLIP_stop_at_last_layers=1
         outputs = self.wrapped.transformer(input_ids=tokens, output_hidden_states=CLIP_stop_at_last_layers)
 
         z = outputs.last_hidden_state
