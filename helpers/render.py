@@ -15,6 +15,7 @@ from PIL import Image, ImageOps, ImageDraw, ImageFont
 import pathlib
 import torchvision.transforms as T
 from cldm.ddim_hacked import DDIMSampler
+from tqdm import tqdm
 
 from .controlnet import render_control_process
 from .rich_helper import print_animation_table
@@ -497,7 +498,7 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
     frame_idx = start_frame
     #checkpoint scheduling
     args.checkpoint = keys.checkpoint_schedule_series[frame_idx] if anim_args.enable_checkpoint_scheduling else None
-    
+    pbar = tqdm(total=anim_args.max_frames, desc='Animation', unit='frames', initial=frame_idx)
     while frame_idx < anim_args.max_frames:
         print(f"\033[31mRendering animation frame {frame_idx} of {anim_args.max_frames}\033[0m")
         noise = keys.noise_schedule_series[frame_idx]
@@ -904,11 +905,13 @@ def render_animation(root, anim_args, args, cond_prompts, uncond_prompts):
             time_elapsed = time_end - time_start
             print(f"Progress Animation Video Compiled, Saved to: {args.outdir}, Filename: {output_filename}")
             print(f"Video Rendered in: {time_elapsed} seconds..")
+        pbar.update(turbo_steps if turbo_steps > 1 else 1)
     if frame_idx == anim_args.max_frames:
         frame_folder = args.outdir
         output_filename_final = f"{args.outdir}/{args.timestring}_final.mp4"
         create_first_video(frame_folder, output_filename_final, frame_rate=30, quality=17)
         print(f"Animation Video Compled, Saved to: {args.outdir}, Filename: {output_filename_final}")
+    pbar.close()
 def render_input_video(args, anim_args, animation_prompts, root):
     # create a folder for the video input frames to live in
     video_in_frame_path = os.path.join(args.outdir, 'inputframes') 
