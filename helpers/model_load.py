@@ -44,7 +44,9 @@ def load_model_for_schedule(root, args, anim_args, keys, frame_idx):
     print_flag=False
     verbose=False
     keys = DeformAnimKeys(anim_args)
-    chkpnt_config = os.path.join(root.models_path_gdrive, os.path.splitext(keys.checkpoint_schedule_series[frame_idx])[0]) + ".yaml"
+    default_dir = os.getcwd()
+    default_config = os.path.join(root.models_path_gdrive, os.path.splitext(keys.checkpoint_schedule_series[frame_idx])[0])
+    chkpnt_config = default_config + ".yaml" if os.path.exists(default_config) else f'{default_dir}/deforum-stable-diffusion/configs/v1-inference.yaml'
     print(f"\033[31mUSING CONFIG\033[0m: {chkpnt_config}")
     chkpnt_config = OmegaConf.load(f"{chkpnt_config}")
     ckpt = os.path.join(root.models_path_gdrive, keys.checkpoint_schedule_series[frame_idx])
