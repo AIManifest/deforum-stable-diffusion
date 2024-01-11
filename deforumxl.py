@@ -26,6 +26,7 @@ import importlib
 import latent_preview
 import gc
 import random
+from helpers.animation import sample_from_cv2
 from comfy_extras import nodes_clip_sdxl
 import time
 from ipywidgets import Image, Layout, VBox
@@ -143,14 +144,31 @@ def loadsdxl(root):
     torch.cuda.empty_cache()
     torch.cuda.ipc_collect()
     
-    if root.lora_name != None:
-        lora = load_lora(model, clip, root.lora_name, root.strength_model, root.strength_clip)
-        old_model, old_clip, old_out = model, clip, out
-        model, clip = lora
-        del old_model
-        del old_clip
-        del old_out
-        out = (model, clip, vae, clipvision)
+    if root.lora_name is not None:
+        if isinstance(root.lora_name, dict):
+            # If it's a dictionary, iterate through the items and load each one
+            for lora_item, strength_model_clip in root.lora_name.items():
+                print(f'Multiple Loras detected, loading {lora_item}')
+                # Get the strengths for the current lora_name or use defaults
+                strength_model = strength_model_clip
+                strength_clip = strength_model_clip    
+                lora = load_lora(model, clip, lora_item, strength_model, strength_clip)
+                old_model, old_clip, old_out = model, clip, out
+                model, clip = lora
+                del old_model
+                del old_clip
+                del old_out
+            out = (model, clip, vae, clipvision)
+        elif isinstance(root.lora_name, str):
+            # If it's a string, load only that string
+            lora = load_lora(model, clip, root.lora_name, root.strength_model, root.strength_clip)
+            old_model, old_clip, old_out = model, clip, out
+            model, clip = lora
+            del old_model
+            del old_clip
+            del old_out
+            out = (model, clip, vae, clipvision)
+
     end = time.time()
     print(f'model loaded in {end-start:.02f} seconds')
     return out
@@ -168,6 +186,8 @@ def create_video(image_folder, fps, video_name):
 
 def runsdxl(args, root, keys, frame=0, control_net=None):
     model, clip, vae, _ = root.model
+    
+    init_sample = None
 
     if args.stop_at_last_layer != None:
         clip = clip.clone()
@@ -197,7 +217,6 @@ def runsdxl(args, root, keys, frame=0, control_net=None):
     negative = [[ncond, {"pooled_output": npooled, "width": args.clipwidth, "height": args.clipheight, "crop_w": args.crop_w, "crop_h": args.crop_h, "target_width": args.target_width, "target_height": args.target_height}]]
 
     if args.init_sample is None:
-        print('USING EMPTY LATENT')
         latentempty = nodes.EmptyLatentImage()
         latent = latentempty.generate(args.imagewidth, args.imageheight, args.batch_size)
         latent = latent[0]
@@ -217,24 +236,19 @@ def runsdxl(args, root, keys, frame=0, control_net=None):
         try:
             vae
         except:
-            print(f"Loading {args.vae_path} for init latent!")
             vae = comfy.sd.VAE(ckpt_path=args.vae_path)
-        print(f'SHAPE 1: {args.init_sample.shape}')
-        args.init_sample = rearrange(args.init_sample, 'b c h w -> b h w c')
-        print(f'SHAPE 2: {args.init_sample.shape}')
-        # encoder = nodes.VAEEncode()
-        # latent = encoder.encode(vae, args.init_sample)
-        latent = vae.encode(args.init_sample)
-        print(f'LATENT SHAPE : {latent.shape}')
-        # latent = rearrange(latent, 'b h w c -> b c h w')
-        print(f'FINAL LATENT SHAPE : {latent.shape}')
+        init_sample = args.init_sample
+        init_sample = pilimage.fromarray(init_sample)
+        i = ImageOps.exif_transpose(init_sample)
+        image = i.convert("RGB")
+        image = np.array(image).astype(np.float32) / 255.0
+        image = torch.from_numpy(image)[None,]
+        latent = vae.encode(image)
         
     force_full_denoise = args.force_full_denoise
     disable_noise = args.disable_noise 
     
     device = comfy.model_management.get_torch_device()
-    
-    
     
     if args.init_sample is not None:
         latent_image = latent
@@ -250,11 +264,7 @@ def runsdxl(args, root, keys, frame=0, control_net=None):
             print(f'BATCH INDS ACTIVATED: {batch_inds}')
         except:
             batch_inds = None
-        noise = comfy.sample.prepare_noise(latent_image, args.seed, batch_inds)
-            
-    print(f'NOISE SHAPE: {noise.shape}')
-    print(f'LATENT SHAPE: {latent_image.shape}')
-    
+        noise = comfy.sample.prepare_noise(latent_image, args.seed, batch_inds)    
     noise_mask = None
         
     preview_format = "PNG"
@@ -294,12 +304,24 @@ def runsdxl(args, root, keys, frame=0, control_net=None):
                 image_widget.value = image_data
         pbar.update_absolute(step + 1, total_steps, preview_bytes)
     
-    print(f'DISABLE NOISE: {disable_noise}')
     # start_step = 0 if args.init_latent_in is None else int(args.steps*args.denoise)
+    denoise = 1.0 if init_sample is None else args.strength
     start_step = 0
-    init_step = int(args.steps-args.steps*args.denoise)
-    start_step = start_step if args.init_sample is None else init_step
-    denoise = 1.0 if args.init_sample is None else args.denoise
+    init_step = int((1.0-args.strength) * args.steps)
+    start_step = start_step if init_sample is None else init_step
+    
+    print("args.steps:", args.steps)
+    print("args.scale:", args.scale)
+    print("args.sampler:", args.sampler)
+    print("args.scheduler:", args.scheduler)
+    print("denoise:", denoise)
+    print("disable_noise:", disable_noise)
+    print("start_step:", start_step)
+    print("last_step:", args.steps)
+    print("force_full_denoise:", True)
+    print("seed:", args.seed)
+    print("args.clip_skip", args.stop_at_last_layer)
+
     samples = comfy.sample.sample(args, 
                                   model, 
                                   noise, 
@@ -325,11 +347,52 @@ def runsdxl(args, root, keys, frame=0, control_net=None):
         print('Cloning latent')
         samplez = latent.clone()
     # samplez["samples"] = samples
+    # model_management.unload_model(model)
     gc.collect()
     torch.cuda.empty_cache()
     torch.cuda.ipc_collect()
     get_device_memory()
+
+    if args.use_refiner:
+        loader = nodes.CheckpointLoaderSimple()
+        refinerout = loader.load_checkpoint(
+                root.custom_checkpoint_path,
+                output_vae=True,
+                output_clip=True,
+                )
+        clear_output(wait=True)
     
+        refinermodel, refinerclip, refinervae, refinerclipvision = refinerout
+
+        refinernoise = comfy.sample.prepare_noise(samples, args.seed, batch_inds)
+    
+        refinersamples = comfy.sample.sample(args, 
+                                      refinermodel, 
+                                      refinernoise, 
+                                      args.refinersteps, 
+                                      args.scale, 
+                                      args.sampler, 
+                                      args.scheduler, 
+                                      positive, 
+                                      negative, 
+                                      samples, 
+                                      denoise=denoise, 
+                                      disable_noise=args.refinerdisable_noise, 
+                                      start_step=args.refiner_start_step, 
+                                      last_step=args.refiner_last_step, 
+                                      force_full_denoise=args.refinerforce_full_denoise, 
+                                      noise_mask=noise_mask, 
+                                      callback=callback, 
+                                      seed=args.seed)
+        del refinermodel
+        del refinerclip
+        del refinervae
+        del refinerclipvision
+        del refinerout
+
+        old_samples = samples
+        samples = refinersamples
+            
     samples=samples.cpu()
 
     if args.vae_path:
@@ -345,5 +408,7 @@ def runsdxl(args, root, keys, frame=0, control_net=None):
     else:
         image = vae.decode_tiled(samples)
     vaeimage = rearrange(image, 'b h w c -> b c h w')
+    vaeimage = vaeimage.squeeze(0)
+    vaeimage = to_pil_image(vaeimage)
 
-    return model, samples, vaeimage
+    return samples, vaeimage
